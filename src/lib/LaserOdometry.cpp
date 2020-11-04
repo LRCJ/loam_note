@@ -269,7 +269,7 @@ namespace loam
     }
   }
 
-
+//判断是否收到了上一个节点所发的所有topic，并判断topic的时间戳确保信息同步
   bool LaserOdometry::hasNewData()
   {
     return _newCornerPointsSharp && _newCornerPointsLessSharp && _newSurfPointsFlat &&
@@ -285,7 +285,7 @@ namespace loam
 
   void LaserOdometry::process()
   {
-    if (!hasNewData())
+    if (!hasNewData())//等待获取数据，根据LaserOdometry::spin()中的设定，process()执行频率为100Hz
       return;// waiting for new data to arrive...
 
     reset();// reset flags, etc.

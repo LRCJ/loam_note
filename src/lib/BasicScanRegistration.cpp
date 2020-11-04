@@ -42,7 +42,7 @@ void BasicScanRegistration::processScanlines(const Time& scanTime, std::vector<p
   }
 
   extractFeatures();
-  updateIMUTransform();
+//  updateIMUTransform();
 }
 
 bool BasicScanRegistration::configure(const RegistrationParams& config)
@@ -58,9 +58,9 @@ void BasicScanRegistration::reset(const Time& scanTime)
 
   // re-initialize IMU start index and state
   _imuIdx = 0;
-  if (hasIMUData()) {
-    interpolateIMUStateFor(0, _imuStart);
-  }
+//  if (hasIMUData()) {
+//    interpolateIMUStateFor(0, _imuStart);//由于没有IMU数据，该函数不执行
+//  }
 
   // clear internal cloud buffers at the beginning of a sweep
   if (true/*newSweep*/) {
@@ -78,7 +78,7 @@ void BasicScanRegistration::reset(const Time& scanTime)
   }
 }
 
-
+/*
 void BasicScanRegistration::updateIMUData(Vector3& acc, IMUState& newState)
 {
   if (_imuHistory.size() > 0) {
@@ -149,7 +149,7 @@ void BasicScanRegistration::interpolateIMUStateFor(const float &relTime, IMUStat
     float ratio = -timeDiff / toSec(_imuHistory[_imuIdx].stamp - _imuHistory[_imuIdx - 1].stamp);
     IMUState::interpolate(_imuHistory[_imuIdx], _imuHistory[_imuIdx - 1], ratio, outputState);
   }
-}
+}*/
 
 
 void BasicScanRegistration::extractFeatures(const uint16_t& beginIdx)
@@ -173,6 +173,7 @@ void BasicScanRegistration::extractFeatures(const uint16_t& beginIdx)
     }*/
 
     // reset scan buffers
+    //剔除两类不可靠的点
     setScanBuffersFor(scanStartIdx, scanEndIdx);
 
     // extract features from equally sized scan regions
@@ -190,6 +191,7 @@ void BasicScanRegistration::extractFeatures(const uint16_t& beginIdx)
       size_t regionSize = ep - sp + 1;
 
       // reset region buffers
+      //求曲率
       setRegionBuffersFor(sp, ep);
 
 
@@ -253,8 +255,7 @@ void BasicScanRegistration::extractFeatures(const uint16_t& beginIdx)
   }
 }
 
-
-
+/*
 void BasicScanRegistration::updateIMUTransform()
 {
   _imuTrans[0].x = _imuStart.pitch.rad();
@@ -278,7 +279,7 @@ void BasicScanRegistration::updateIMUTransform()
   _imuTrans[3].x = imuVelocityFromStart.x();
   _imuTrans[3].y = imuVelocityFromStart.y();
   _imuTrans[3].z = imuVelocityFromStart.z();
-}
+}*/
 
 
 void BasicScanRegistration::setRegionBuffersFor(const size_t& startIdx, const size_t& endIdx)

@@ -180,7 +180,7 @@ void ScanRegistration::handleIMUMessage(const sensor_msgs::Imu::ConstPtr& imuIn)
   newState.yaw = yaw;
   newState.acceleration = acc;
 
-  updateIMUData(acc, newState);
+//  updateIMUData(acc, newState);
 }
 
 

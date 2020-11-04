@@ -241,7 +241,7 @@ void MultiScanRegistration::process(const pcl::PointCloud<pcl::PointXYZ>& laserC
     float relTime = config().scanPeriod * (ori - startOri) / (endOri - startOri);
     point.intensity = scanID + relTime;
 
-    projectPointToStartOfSweep(point, relTime);
+    //projectPointToStartOfSweep(point, relTime);//可注释掉
 
     _laserCloudScans[scanID].push_back(point);
   }
