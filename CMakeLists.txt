@@ -32,7 +32,7 @@ catkin_package(
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_definitions( -march=native )
+#add_definitions( -march=native )
 
 
 add_subdirectory(src/lib)
@@ -49,24 +49,23 @@ target_link_libraries(laserMapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} loam )
 add_executable(transformMaintenance src/transform_maintenance_node.cpp)
 target_link_libraries(transformMaintenance ${catkin_LIBRARIES} ${PCL_LIBRARIES} loam )
 
-if (CATKIN_ENABLE_TESTING)
-  find_package(rostest REQUIRED)
-  # TODO: Download test data
-  catkin_download_test_data(${PROJECT_NAME}_test_data.tar.gz
-    https://dl.dropboxusercontent.com/s/y4hn486461tfmpm/velodyne_loam_test_data.tar.gz
-    MD5 3d5194e6981975588b7a93caebf79ba4)
-  add_custom_target(${PROJECT_NAME}_test_data
-    COMMAND ${CMAKE_COMMAND} -E tar -xzf velodyne_loam_test_data.tar.gz
-    DEPENDS ${PROJECT_NAME}_test_data.tar.gz)
-  configure_file(tests/loam.test.in
-                 ${PROJECT_BINARY_DIR}/test/loam.test)
-  add_rostest(${PROJECT_BINARY_DIR}/test/loam.test
-    DEPENDENCIES
-      ${PROJECT_NAME}_test_data
-      multiScanRegistration
-      laserOdometry
-      laserMapping
-      transformMaintenance)
-endif()
-
+#if (CATKIN_ENABLE_TESTING)
+#  find_package(rostest REQUIRED)
+#  # TODO: Download test data
+#  catkin_download_test_data(${PROJECT_NAME}_test_data.tar.gz
+#    https://dl.dropboxusercontent.com/s/y4hn486461tfmpm/velodyne_loam_test_data.tar.gz
+#    MD5 3d5194e6981975588b7a93caebf79ba4)
+#  add_custom_target(${PROJECT_NAME}_test_data
+#    COMMAND ${CMAKE_COMMAND} -E tar -xzf velodyne_loam_test_data.tar.gz
+#    DEPENDS ${PROJECT_NAME}_test_data.tar.gz)
+#  configure_file(tests/loam.test.in
+#                 ${PROJECT_BINARY_DIR}/test/loam.test)
+#  add_rostest(${PROJECT_BINARY_DIR}/test/loam.test
+#    DEPENDENCIES
+#      ${PROJECT_NAME}_test_data
+#      multiScanRegistration
+#      laserOdometry
+#      laserMapping
+#      transformMaintenance)
+#endif()
 

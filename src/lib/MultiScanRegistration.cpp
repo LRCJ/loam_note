@@ -93,15 +93,27 @@ bool MultiScanRegistration::setupROS(ros::NodeHandle& node, ros::NodeHandle& pri
 
   // fetch scan mapping params
   std::string lidarName;
+  std::string topicName;
 
   if (privateNode.getParam("lidar", lidarName)) {
-    if (lidarName == "VLP-16") {
+    if (lidarName == "VLP-16")
+    {
       _scanMapper = MultiScanMapper::Velodyne_VLP_16();
-    } else if (lidarName == "HDL-32") {
+    }
+    else if (lidarName == "HDL-32")
+    {
       _scanMapper = MultiScanMapper::Velodyne_HDL_32();
-    } else if (lidarName == "HDL-64E") {
+    }
+    else if (lidarName == "HDL-64E")
+    {
       _scanMapper = MultiScanMapper::Velodyne_HDL_64E();
-    } else {
+    }
+    else if (lidarName == "PandarQT")
+    {
+      _scanMapper = MultiScanMapper::PandarQT();
+    }
+    else
+    {
       ROS_ERROR("Invalid lidar parameter: %s (only \"VLP-16\", \"HDL-32\" and \"HDL-64E\" are supported)", lidarName.c_str());
       return false;
     }
@@ -132,8 +144,9 @@ bool MultiScanRegistration::setupROS(ros::NodeHandle& node, ros::NodeHandle& pri
   }
 
   // subscribe to input cloud topic
+  privateNode.getParam("PointCloudTopicName", topicName);
   _subLaserCloud = node.subscribe<sensor_msgs::PointCloud2>
-      ("/multi_scan_points", 2, &MultiScanRegistration::handleCloudMessage, this);
+      (topicName, 2, &MultiScanRegistration::handleCloudMessage, this);
 
   return true;
 }

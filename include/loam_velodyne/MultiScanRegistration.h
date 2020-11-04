@@ -87,6 +87,9 @@ public:
 
   /** Multi scan mapper for Velodyne HDL-64E according to data sheet. */
   static inline MultiScanMapper Velodyne_HDL_64E() { return MultiScanMapper(-24.9f, 2, 64); };
+  
+  /** Multi scan mapper for PandarQT according to data sheet. */
+  static inline MultiScanMapper PandarQT() { return MultiScanMapper(-52.1, 52.1, 64); };
 
 
 private:
