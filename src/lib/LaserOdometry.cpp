@@ -320,9 +320,12 @@ namespace loam
     if (_ioRatio < 2 || frameCount() % _ioRatio == 1)
     {
       ros::Time sweepTime = _timeSurfPointsLessFlat;
+      //之所以publish lastCornerCloud/lastSurfaceCloud
+      //是因为在BasicLaserOdometry::process()中已经将当前帧的特征点与上一帧的特征点进行了交换，为下一次的运动估计做准备
       publishCloudMsg(_pubLaserCloudCornerLast, *lastCornerCloud(), sweepTime, "/camera");
       publishCloudMsg(_pubLaserCloudSurfLast, *lastSurfaceCloud(), sweepTime, "/camera");
 
+      //将当前帧点云都统一到当前帧结束时刻，相当于去除了畸变，或者是变换到了下一帧点云的初始时刻
       transformToEnd(laserCloud());  // transform full resolution cloud to sweep end before sending it
       publishCloudMsg(_pubLaserCloudFullRes, *laserCloud(), sweepTime, "/camera");
     }

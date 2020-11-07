@@ -74,15 +74,17 @@ namespace loam
     float _deltaTAbort;     ///< optimization abort threshold for deltaT
     float _deltaRAbort;     ///< optimization abort threshold for deltaR
 
+    //上一点云帧的特征点
     pcl::PointCloud<pcl::PointXYZI>::Ptr _lastCornerCloud;    ///< last corner points cloud
     pcl::PointCloud<pcl::PointXYZI>::Ptr _lastSurfaceCloud;   ///< last surface points cloud
 
-    pcl::PointCloud<pcl::PointXYZI>::Ptr _laserCloudOri;      ///< point selection
+    pcl::PointCloud<pcl::PointXYZI>::Ptr _laserCloudOri;      ///< point selection，即从当前点云帧的特征点中选取的可以在上一帧点云中找到对应线/面的特征点
     pcl::PointCloud<pcl::PointXYZI>::Ptr _coeffSel;           ///< point selection coefficients
 
     nanoflann::KdTreeFLANN<pcl::PointXYZI> _lastCornerKDTree;   ///< last corner cloud KD-tree
     nanoflann::KdTreeFLANN<pcl::PointXYZI> _lastSurfaceKDTree;  ///< last surface cloud KD-tree
 
+    //存储从MultiScanRegistration节点发送过来的特征点，作为当前点云帧的特征点
     pcl::PointCloud<pcl::PointXYZI>::Ptr _cornerPointsSharp;      ///< sharp corner points cloud
     pcl::PointCloud<pcl::PointXYZI>::Ptr _cornerPointsLessSharp;  ///< less sharp corner points cloud
     pcl::PointCloud<pcl::PointXYZI>::Ptr _surfPointsFlat;         ///< flat surface points cloud
