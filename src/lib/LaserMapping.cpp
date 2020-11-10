@@ -48,7 +48,7 @@ LaserMapping::LaserMapping(const float& scanPeriod, const size_t& maxIterations)
 
 
 bool LaserMapping::setup(ros::NodeHandle& node, ros::NodeHandle& privateNode)
-{
+{/*
    // fetch laser mapping params
    float fParam;
    int iParam;
@@ -149,7 +149,7 @@ bool LaserMapping::setup(ros::NodeHandle& node, ros::NodeHandle& privateNode)
          downSizeFilterMap().setLeafSize(fParam, fParam, fParam);
          ROS_INFO("Set map down size filter leaf size: %g", fParam);
       }
-   }
+   }*/
 
    // advertise laser mapping topics
    _pubLaserCloudSurround = node.advertise<sensor_msgs::PointCloud2>("/laser_cloud_surround", 1);
@@ -276,13 +276,13 @@ void LaserMapping::process()
 void LaserMapping::publishResult()
 {
    // publish new map cloud according to the input output ratio
-   if (hasFreshMap()) // publish new map cloud
+   if (hasFreshMap()) // publish new map cloud，发布submap中的点云数据
       publishCloudMsg(_pubLaserCloudSurround, laserCloudSurroundDS(), _timeLaserOdometry, "/camera_init");
 
-   // publish transformed full resolution input cloud
+   // publish transformed full resolution input cloud，发布所有点云数据
    publishCloudMsg(_pubLaserCloudFullRes, laserCloud(), _timeLaserOdometry, "/camera_init");
 
-   // publish odometry after mapped transformations
+   // publish odometry after mapped transformations，发布优化过的位姿变换
    geometry_msgs::Quaternion geoQuat = tf::createQuaternionMsgFromRollPitchYaw
    (transformAftMapped().rot_z.rad(), -transformAftMapped().rot_x.rad(), -transformAftMapped().rot_y.rad());
 

@@ -135,7 +135,7 @@ void BasicLaserOdometry::accumulateRotation(Angle cx, Angle cy, Angle cz,
 }
 
 
-//利用IMU修正旋转量，根据起始欧拉角，当前点云的欧拉角修正，具体的实时过程和BasicLaserOdometry::accumulateRotation()是一样的
+//利用IMU修正旋转量，根据起始欧拉角，当前点云的欧拉角修正，具体的实施过程和BasicLaserOdometry::accumulateRotation()是一样的
 void BasicLaserOdometry::pluginIMURotation(const Angle& bcx, const Angle& bcy, const Angle& bcz,
                                            const Angle& blx, const Angle& bly, const Angle& blz,
                                            const Angle& alx, const Angle& aly, const Angle& alz,
@@ -176,8 +176,8 @@ void BasicLaserOdometry::pluginIMURotation(const Angle& bcx, const Angle& bcy, c
    //这两个IMU的欧拉角是在世界坐标系下的全局欧拉角，和上面一个根据点云优化迭代计算出来的全局欧拉角是不一样的
    //其处理过程在BasicScanRegistration::updateIMUTransform()
 
-   //一下的计算同BasicLaserOdometry::accumulateRotation()，区别在于这里是三个旋转矩阵相乘
-   //全局欧拉角*初始时刻欧拉角的转置*结束时刻欧拉角
+   //以下的计算同BasicLaserOdometry::accumulateRotation()，区别在于这里是三个旋转矩阵相乘
+   //初始时刻欧拉角的转置*结束时刻欧拉角*全局欧拉角
    //参考论文low-drift and real-time lidar odometry and mapping"中给出的解释是让当前帧点云对齐该帧初始时刻的方向
 
    float srx = -sbcx * (salx*sblx + calx * caly*cblx*cbly + calx * cblx*saly*sbly)
@@ -692,6 +692,7 @@ void BasicLaserOdometry::process()
          //求解线性方程组matAtA * matX = matAtB，参考http://eigen.tuxfamily.org/dox/classEigen_1_1ColPivHouseholderQR.html
          matX = matAtA.colPivHouseholderQr().solve(matAtB);
 
+         //退化场景判断与处理
          if (iterCount == 0)
           {
             Eigen::Matrix<float, 1, 6> matE;//特征值1*6矩阵
@@ -769,7 +770,7 @@ void BasicLaserOdometry::process()
    }
 
    Angle rx, ry, rz;
-   //求相对于原点的旋转量,垂直方向上1.05倍修正?
+   //求相对于世界坐标系的旋转量,垂直方向上1.05倍修正?
    accumulateRotation(_transformSum.rot_x,
                       _transformSum.rot_y,
                       _transformSum.rot_z,
@@ -786,13 +787,13 @@ void BasicLaserOdometry::process()
    //之所以是减号，是因为在做高斯牛顿迭代优化的时候，是将当前帧的点都变换到初始时刻，再与上一帧求距离，优化迭代使距离逼近0
    //因此我们优化得到的变换是将点从当前帧的结束时刻变换到初始时刻
    Vector3 trans = _transformSum.pos - v;
-
+/*
    //根据IMU修正旋转量
    pluginIMURotation(rx, ry, rz,
                      _imuPitchStart, _imuYawStart, _imuRollStart,
                      _imuPitchEnd, _imuYawEnd, _imuRollEnd,
-                     rx, ry, rz);
-   //得到世界坐标系下的转移矩阵
+                     rx, ry, rz);*/
+   //得到当前点云帧结束时刻激光雷达在世界坐标系下的欧拉角和位置
    _transformSum.rot_x = rx;
    _transformSum.rot_y = ry;
    _transformSum.rot_z = rz;
@@ -802,7 +803,7 @@ void BasicLaserOdometry::process()
    transformToEnd(_cornerPointsLessSharp);
    transformToEnd(_surfPointsLessFlat);
 
-   _cornerPointsLessSharp.swap(_lastCornerCloud);
+   _cornerPointsLessSharp.swap(_lastCornerCloud);//
    _surfPointsLessFlat.swap(_lastSurfaceCloud);
 
    //畸变校正之后的点作为last点保存等下个点云进来进行匹配

@@ -66,7 +66,7 @@ namespace loam
     // fetch laser odometry params
     float fParam;
     int iParam;
-
+/*
     if (privateNode.getParam("scanPeriod", fParam))
     {
       if (fParam <= 0)
@@ -135,7 +135,7 @@ namespace loam
         setDeltaRAbort(fParam);
         ROS_INFO("Set deltaRAbort: %g", fParam);
       }
-    }
+    }*/
 
     // advertise laser odometry topics
     _pubLaserCloudCornerLast = node.advertise<sensor_msgs::PointCloud2>("/laser_cloud_corner_last", 2);
@@ -309,7 +309,7 @@ namespace loam
     _laserOdometryMsg.pose.pose.position.x    = transformSum().pos.x();
     _laserOdometryMsg.pose.pose.position.y    = transformSum().pos.y();
     _laserOdometryMsg.pose.pose.position.z    = transformSum().pos.z();
-    _pubLaserOdometry.publish(_laserOdometryMsg);
+    _pubLaserOdometry.publish(_laserOdometryMsg);//发布全局位姿变换数据的话题
 
     _laserOdometryTrans.stamp_ = _timeSurfPointsLessFlat;
     _laserOdometryTrans.setRotation(tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w));
@@ -322,6 +322,8 @@ namespace loam
       ros::Time sweepTime = _timeSurfPointsLessFlat;
       //之所以publish lastCornerCloud/lastSurfaceCloud
       //是因为在BasicLaserOdometry::process()中已经将当前帧的特征点与上一帧的特征点进行了交换，为下一次的运动估计做准备
+      //这里的lastCornerCloud/lastSurfaceCloud并不是当前点云帧的特征点，而是曲率相对较小的edge point或曲率相对较大的planar point
+      //存储在_cornerPointsLessSharp/_surfPointsLessFlat
       publishCloudMsg(_pubLaserCloudCornerLast, *lastCornerCloud(), sweepTime, "/camera");
       publishCloudMsg(_pubLaserCloudSurfLast, *lastSurfaceCloud(), sweepTime, "/camera");
 
