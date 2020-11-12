@@ -1,7 +1,7 @@
 #include <pcl/filters/voxel_grid.h>
 
 #include "loam_velodyne/BasicScanRegistration.h"
-#include "math_utils.h"
+#include "loam_velodyne/math_utils.h"
 
 namespace loam
 {

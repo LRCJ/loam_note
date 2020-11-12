@@ -36,7 +36,7 @@
 namespace loam
 {
 
-LaserMapping::LaserMapping(const float& scanPeriod, const size_t& maxIterations)
+LaserMapping::LaserMapping()
 {
    // initialize mapping odometry and odometry tf messages
    _odomAftMapped.header.frame_id = "/camera_init";
@@ -208,7 +208,7 @@ void LaserMapping::laserOdometryHandler(const nav_msgs::Odometry::ConstPtr& lase
    double roll, pitch, yaw;
    geometry_msgs::Quaternion geoQuat = laserOdometry->pose.pose.orientation;
    tf::Matrix3x3(tf::Quaternion(geoQuat.z, -geoQuat.x, -geoQuat.y, geoQuat.w)).getRPY(roll, pitch, yaw);
-
+   ROS_INFO("LaserMapping node update Odometry data!Data time is [%u.%09u]",_timeLaserOdometry.sec,_timeLaserOdometry.nsec);
    updateOdometry(-pitch, -yaw, roll,
                   laserOdometry->pose.pose.position.x,
                   laserOdometry->pose.pose.position.y,
@@ -266,9 +266,19 @@ void LaserMapping::process()
       return;
 
    reset();// reset flags, etc.
-
+   ROS_INFO("LaserMapping node Start to process data from laserOdometry!Data time is [%u.%09u]",_timeLaserOdometry.sec,_timeLaserOdometry.nsec);
+   //由于mapping过程计算量大，程序会堵塞在此处直到完成mapping，在此期间，由于无法执行ros::spinOnce()，
+   //也就无法调用回调函数，即_laserCloudCornerLast、_laserCloudSurfLast、
+   //_laserCloudFullRes以及_transformSum变量是无法更新的
    if (!BasicLaserMapping::process(fromROSTime(_timeLaserOdometry)))
+   {
+      ROS_INFO("LaserMapping node didn't complete a mapping!");
       return;
+   }
+   else
+   {
+      ROS_INFO("LaserMapping node complete a mapping!");
+   }
 
    publishResult();
 }
@@ -276,9 +286,12 @@ void LaserMapping::process()
 void LaserMapping::publishResult()
 {
    // publish new map cloud according to the input output ratio
-   if (hasFreshMap()) // publish new map cloud，发布submap中的点云数据
+   if (hasFreshMap()) // publish new map cloud，发布submap中的点云数据，间隔4次发布1次
+   {
       publishCloudMsg(_pubLaserCloudSurround, laserCloudSurroundDS(), _timeLaserOdometry, "/camera_init");
-
+      ROS_INFO("LaserMapping node publish topic 'laserCloudSurroundDS'!");
+   }
+   ROS_INFO("LaserMapping node publish topic 'laserCloud' and '_odomAftMapped'!");
    // publish transformed full resolution input cloud，发布所有点云数据
    publishCloudMsg(_pubLaserCloudFullRes, laserCloud(), _timeLaserOdometry, "/camera_init");
 
@@ -286,6 +299,8 @@ void LaserMapping::publishResult()
    geometry_msgs::Quaternion geoQuat = tf::createQuaternionMsgFromRollPitchYaw
    (transformAftMapped().rot_z.rad(), -transformAftMapped().rot_x.rad(), -transformAftMapped().rot_y.rad());
 
+   //nav_msgs::Odometry _odomAftMapped;同时存储了mapping前后即优化前后的位姿信息
+   //nav_msgs::Odometry的定义见"/opt/ros/melodic/share/nav_msgs/msg/Odometry/msg"
    _odomAftMapped.header.stamp = _timeLaserOdometry;
    _odomAftMapped.pose.pose.orientation.x = -geoQuat.y;
    _odomAftMapped.pose.pose.orientation.y = -geoQuat.z;

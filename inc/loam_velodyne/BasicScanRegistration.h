@@ -141,7 +141,7 @@ namespace loam
     */
     void processScanlines(const Time& scanTime, std::vector<pcl::PointCloud<pcl::PointXYZI>> const& laserCloudScans);
 
-    bool configure(const RegistrationParams& config = RegistrationParams()); 
+    bool configure(const RegistrationParams& config); 
 
     /** \brief Update new IMU state. NOTE: MUTATES ARGS! */
     void updateIMUData(Vector3& acc, IMUState& newState);

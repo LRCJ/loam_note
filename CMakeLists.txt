@@ -15,7 +15,7 @@ find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
 
 include_directories(
-  include
+  inc
 	${catkin_INCLUDE_DIRS} 
 	#${EIGEN3_INCLUDE_DIR}
 	${PCL_INCLUDE_DIRS})
@@ -23,7 +23,7 @@ include_directories(
 catkin_package(
   CATKIN_DEPENDS geometry_msgs nav_msgs roscpp rospy std_msgs tf pcl_conversions
   DEPENDS EIGEN3 PCL
-  INCLUDE_DIRS include
+  INCLUDE_DIRS inc
   LIBRARIES loam
 )
 
@@ -35,7 +35,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 #add_definitions( -march=native )
 
 
-add_subdirectory(src/lib)
+add_subdirectory(lib)
 
 add_executable(multiScanRegistration src/multi_scan_registration_node.cpp)
 target_link_libraries(multiScanRegistration ${catkin_LIBRARIES} ${PCL_LIBRARIES} loam )

@@ -33,11 +33,18 @@
 #ifndef LOAM_MULTISCANREGISTRATION_H
 #define LOAM_MULTISCANREGISTRATION_H
 
+#include <stdint.h>
 
-#include "loam_velodyne/ScanRegistration.h"
+#include <pcl_conversions/pcl_conversions.h>
 
 #include <sensor_msgs/PointCloud2.h>
+#include <ros/node_handle.h>
+#include <sensor_msgs/Imu.h>
+#include <tf/transform_datatypes.h>
 
+#include "loam_velodyne/BasicScanRegistration.h"
+#include "common.h"
+#include "math_utils.h"
 
 namespace loam {
 
@@ -104,7 +111,7 @@ private:
 /** \brief Class for registering point clouds received from multi-laser lidars.
  *
  */
-class MultiScanRegistration : virtual public ScanRegistration {
+class MultiScanRegistration : virtual public BasicScanRegistration {
 public:
   MultiScanRegistration(const MultiScanMapper& scanMapper = MultiScanMapper());
 
@@ -117,14 +124,20 @@ public:
    */
   void handleCloudMessage(const sensor_msgs::PointCloud2ConstPtr &laserCloudMsg);
 
-private:
-  /** \brief Setup component in active mode.
+  /** \brief Handler method for IMU messages.
    *
-   * @param node the ROS node handle
-   * @param privateNode the private ROS node handle
+   * @param imuIn the new IMU message
    */
-  bool setupROS(ros::NodeHandle& node, ros::NodeHandle& privateNode, RegistrationParams& config_out) override;
+  void handleIMUMessage(const sensor_msgs::Imu::ConstPtr& imuIn);
 
+    /** \brief Parse node parameter.
+  *
+  * @param nh the ROS node handle
+  * @return true, if all specified parameters are valid, false if at least one specified parameter is invalid
+  */
+  bool parseParams(const ros::NodeHandle& nh, RegistrationParams& config_out);
+
+private:
   /** \brief Process a new input cloud.
    *
    * @param laserCloudIn the new input cloud to process
@@ -132,11 +145,24 @@ private:
    */
   void process(const pcl::PointCloud<pcl::PointXYZ>& laserCloudIn, const Time& scanTime);
 
+
+protected:
+  /** \brief Publish the current result via the respective topics. */
+  void publishResult();
+
 private:
   int _systemDelay = 20;             ///< system startup delay counter
   MultiScanMapper _scanMapper;  ///< mapper for mapping vertical point angles to scan ring IDs
   std::vector<pcl::PointCloud<pcl::PointXYZI> > _laserCloudScans;
   ros::Subscriber _subLaserCloud;   ///< input cloud message subscriber
+
+  ros::Subscriber _subImu;                    ///< IMU message subscriber
+  ros::Publisher _pubLaserCloud;              ///< full resolution cloud message publisher
+  ros::Publisher _pubCornerPointsSharp;       ///< sharp corner cloud message publisher
+  ros::Publisher _pubCornerPointsLessSharp;   ///< less sharp corner cloud message publisher
+  ros::Publisher _pubSurfPointsFlat;          ///< flat surface cloud message publisher
+  ros::Publisher _pubSurfPointsLessFlat;      ///< less flat surface cloud message publisher
+  ros::Publisher _pubImuTrans;                ///< IMU transformation message publisher
 
 };
 

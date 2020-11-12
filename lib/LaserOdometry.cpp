@@ -34,7 +34,7 @@
 
 #include "loam_velodyne/LaserOdometry.h"
 #include "loam_velodyne/common.h"
-#include "math_utils.h"
+#include "loam_velodyne/math_utils.h"
 
 namespace loam
 {
@@ -291,6 +291,7 @@ namespace loam
     reset();// reset flags, etc.
     BasicLaserOdometry::process();
     publishResult();
+    ROS_INFO("LaserOdometry node complete a motion estimation!");
   }
 
 

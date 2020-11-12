@@ -11,9 +11,14 @@ int main(int argc, char **argv)
 
   loam::MultiScanRegistration multiScan;
 
-  if (multiScan.setup(node, privateNode)) {
+  if (multiScan.setup(node, privateNode))
+  {
     // initialization successful
     ros::spin();
+  }
+  else
+  {
+  	ROS_INFO("multiScanRegistration initialization failed!");
   }
 
   return 0;

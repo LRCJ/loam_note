@@ -1,6 +1,5 @@
 #include "loam_velodyne/BasicLaserOdometry.h"
-
-#include "math_utils.h"
+#include "loam_velodyne/math_utils.h"
 #include <pcl/filters/filter.h>
 #include <Eigen/Eigenvalues>
 #include <Eigen/QR>
@@ -173,11 +172,14 @@ void BasicLaserOdometry::pluginIMURotation(const Angle& bcx, const Angle& bcy, c
    float caly = aly.cos();
    float salz = alz.sin();
    float calz = alz.cos();
+   //|sΘx*sΘy*sΘz+cΘy*cΘz , sΘx*sΘy*cΘz-cΘy*sΘz , cΘx*sΘy|
+   //|     cΘx*sΘz        ,        cΘx*cΘz      ,  -sΘx  |
+   //|sΘx*cΘy*sΘz-sΘy*cΘz , sΘx*cΘy*cΘz+sΘy*sΘz , cΘy*cΘx|
    //这两个IMU的欧拉角是在世界坐标系下的全局欧拉角，和上面一个根据点云优化迭代计算出来的全局欧拉角是不一样的
    //其处理过程在BasicScanRegistration::updateIMUTransform()
 
    //以下的计算同BasicLaserOdometry::accumulateRotation()，区别在于这里是三个旋转矩阵相乘
-   //初始时刻欧拉角的转置*结束时刻欧拉角*全局欧拉角
+   //R=全局欧拉角Rbc*初始时刻欧拉角的转置RblT*结束时刻欧拉角Ral
    //参考论文low-drift and real-time lidar odometry and mapping"中给出的解释是让当前帧点云对齐该帧初始时刻的方向
 
    float srx = -sbcx * (salx*sblx + calx * caly*cblx*cbly + calx * cblx*saly*sbly)
@@ -771,6 +773,9 @@ void BasicLaserOdometry::process()
 
    Angle rx, ry, rz;
    //求相对于世界坐标系的旋转量,垂直方向上1.05倍修正?
+   //注意，这里在_transform前面加上了负号，是因为迭代求得的是从当前帧结束时刻到初始时刻的欧拉角变换
+   //现在需要求全局(世界)坐标下的当前帧结束时刻Lidar的欧拉角，则需要获得当前帧结束时刻相对于初始时刻的欧拉角变换
+   //再和之前累积的进行运算
    accumulateRotation(_transformSum.rot_x,
                       _transformSum.rot_y,
                       _transformSum.rot_z,
@@ -815,7 +820,7 @@ void BasicLaserOdometry::process()
       _lastCornerKDTree.setInputCloud(_lastCornerCloud);
       _lastSurfaceKDTree.setInputCloud(_lastSurfaceCloud);
    }
-
+   
 }
 
 

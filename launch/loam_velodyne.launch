@@ -16,7 +16,9 @@
   </node>
 
   <node pkg="loam_velodyne" type="laserMapping" name="laserMapping" output="screen">
-    <param name="scanPeriod" value="$(arg scanPeriod)" />
+    <param name="maxIterations" value="60" />
+    <param name="deltaTAbort" value="0.001" />
+    <param name="deltaRAbort" value="0.001" />
   </node>
 
   <node pkg="loam_velodyne" type="transformMaintenance" name="transformMaintenance" output="screen">

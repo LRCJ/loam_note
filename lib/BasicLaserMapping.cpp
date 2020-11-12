@@ -33,7 +33,7 @@
 
 #include "loam_velodyne/BasicLaserMapping.h"
 #include "loam_velodyne/nanoflann_pcl.h"
-#include "math_utils.h"
+#include "loam_velodyne/math_utils.h"
 
 #include <Eigen/Eigenvalues>
 #include <Eigen/QR>
@@ -48,13 +48,13 @@ using std::atan2;
 using std::pow;
 
 
-BasicLaserMapping::BasicLaserMapping(const float& scanPeriod, const size_t& maxIterations) :
-   _scanPeriod(scanPeriod),
+BasicLaserMapping::BasicLaserMapping():
+   _scanPeriod(0.1),
    _stackFrameNum(1),
    _mapFrameNum(5),
    _frameCount(0),
    _mapFrameCount(0),
-   _maxIterations(maxIterations),
+   _maxIterations(10),
    _deltaTAbort(0.05),
    _deltaRAbort(0.05),
    _laserCloudCenWidth(10),
@@ -272,8 +272,11 @@ void BasicLaserMapping::transformFullResToMap()
 bool BasicLaserMapping::createDownsizedMap()
 {
    // create new map cloud according to the input output ratio
-   _mapFrameCount++;// _mapFrameCount = 4
-   if (_mapFrameCount < _mapFrameNum)// _mapFrameNum = 5
+   //首次进入该函数时_mapFrameCount = 4，_mapFrameNum = 5，然后下面的if不执行，即不返回false并且_mapFrameCount被置为0
+   //此后，4次进入该函数都执行if，直接返回false，导致LaserMapping::publishResult()函数不publish _laserCloudSurroundDS
+   //数据的topic，只publish优化过的位姿和当前帧所有的点云
+   _mapFrameCount++;
+   if (_mapFrameCount < _mapFrameNum)
       return false;
 
    _mapFrameCount = 0;
@@ -696,7 +699,10 @@ nanoflann::KdTreeFLANN<pcl::PointXYZI> kdtreeSurfFromMap;
 void BasicLaserMapping::optimizeTransformTobeMapped()
 {
    if (_laserCloudCornerFromMap->size() <= 10 || _laserCloudSurfFromMap->size() <= 100)
+   {
+      printf("There are few feature points!Stop optimization!\n");
       return;
+   }
 
    pcl::PointXYZI pointSel, pointOri, /*pointProj, */coeff;
 
@@ -726,8 +732,8 @@ void BasicLaserMapping::optimizeTransformTobeMapped()
 
    size_t laserCloudCornerStackNum = _laserCloudCornerStackDS->size();
    size_t laserCloudSurfStackNum = _laserCloudSurfStackDS->size();
-
-   for (size_t iterCount = 0; iterCount < _maxIterations; iterCount++)//最大迭代次数10次，_maxIterations=10
+   size_t iterCount;
+   for (iterCount = 0; iterCount < _maxIterations; iterCount++)//最大迭代次数10次，_maxIterations=10
    {
       _laserCloudOri.clear();
       _coeffSel.clear();
@@ -902,7 +908,10 @@ void BasicLaserMapping::optimizeTransformTobeMapped()
 
       size_t laserCloudSelNum = _laserCloudOri.size();
       if (laserCloudSelNum < 50)//特征点大于50个才进行优化迭代
+      {
+         printf("There are few feature points!Didn't iteration!\n");
          continue;
+      }
 
       //这部分的迭代过程与LaserOdometry节点的迭代过程系统，都是使用高斯牛顿法
       Eigen::Matrix<float, Eigen::Dynamic, 6> matA(laserCloudSelNum, 6);
@@ -999,9 +1008,12 @@ void BasicLaserMapping::optimizeTransformTobeMapped()
                           pow(matX(5, 0) * 100, 2));
 
       if (deltaR < _deltaRAbort && deltaT < _deltaTAbort)
+      {
+         printf("stop iteration for error small enough!\n");
          break;//旋转平移量足够小就停止迭代
+      }
    }
-
+   printf("complete a transform optimization!iterCount=%lu\n",iterCount);
    transformUpdate();
 }
 

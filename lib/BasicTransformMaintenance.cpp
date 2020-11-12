@@ -80,22 +80,57 @@ void BasicTransformMaintenance::updateMappingTransform(Twist const& transformAft
                            transformBefMapped.pos.x(), transformBefMapped.pos.y(), transformBefMapped.pos.z());
 }
 
+//odometry的运动估计和mapping矫正量融合之后得到的最终的位姿transformMapped
 void BasicTransformMaintenance::transformAssociateToMap()
 {
+   //_transformSum位姿数据publish的频率取决于odometry节点的执行速度，由于该节点计算量不大，
+   //因此激光雷达以10Hz输出的点云数据，odometry节点都能及时处理完并输出一个位姿(10Hz)；
+   //_transformBefMapped/_transformAftMapped位姿数据publish的频率取决于mapping节点的执行速度，
+   //由于计算量较大一般无法跟上激光雷达输出频率，导致处理完一帧点云数据后，下一帧或下几帧点云数据都被跳过，
+   //但依然可以使用处理完的这一帧输出的修正量去修正odometry节点输出的10Hz位姿信息，最终得到一个较精准的位姿
+
+
+
+   //进行两个操作1.transformInc=_transformBefMapped-_transformSum，2.Rtfs*transformInc
+   //这里_transformBefMapped/_transformAftMapped和_transformSum的时间戳是不一样的，
+   //更准确地说，假设_transformBefMapped/_transformAftMapped是mapping节点处理第k帧点云得到的优化前后位姿，
+   //则_transformSum可能是odometry节点处理第k+2帧得到的位姿，根据mapping节点的代码可知，
+   //_transformBefMapped是mapping节点处理第k帧点云时优化前的位姿，等于odometry节点处理完第k帧点云时的_transformSum，
+   //两者的位置坐标相减，得到世界坐标系下的第k和k+2帧Lidar的相对位置(注意，这里几个位姿均基于世界坐标系)，
+   //然后通过_transformSum变换到k+2帧点云结束时刻的Lidar坐标下，绕YXZ旋转
+   //    | cΘy , 0 , sΘy |
+   //RΘy=|  0  , 1 ,  0  |
+   //    |-sΘy , 0 , cΘy |
+   //绕y轴旋转(-transformSum[1]=Θy)
    float x1 = cos(_transformSum[1]) * (_transformBefMapped[3] - _transformSum[3])
-      - sin(_transformSum[1]) * (_transformBefMapped[5] - _transformSum[5]);
+            - sin(_transformSum[1]) * (_transformBefMapped[5] - _transformSum[5]);
    float y1 = _transformBefMapped[4] - _transformSum[4];
    float z1 = sin(_transformSum[1]) * (_transformBefMapped[3] - _transformSum[3])
-      + cos(_transformSum[1]) * (_transformBefMapped[5] - _transformSum[5]);
+            + cos(_transformSum[1]) * (_transformBefMapped[5] - _transformSum[5]);
 
+   //    | 1 ,  0  ,   0  |
+   //RΘx=| 0 , cΘx , -sΘx |
+   //    | 0 , sΘx ,  cΘx |
+   //绕x轴旋转（-transformSum[0]=Θx）
    float x2 = x1;
    float y2 = cos(_transformSum[0]) * y1 + sin(_transformSum[0]) * z1;
    float z2 = -sin(_transformSum[0]) * y1 + cos(_transformSum[0]) * z1;
 
+   //    | cΘz , -sΘz , 0 |
+   //RΘz=| sΘz ,  cΘz , 0 |
+   //    |  0  ,   0  , 1 |
+   //绕z轴旋转（-transformSum[2]=Θz）
    _transformIncre[3] = cos(_transformSum[2]) * x2 + sin(_transformSum[2]) * y2;
    _transformIncre[4] = -sin(_transformSum[2]) * x2 + cos(_transformSum[2]) * y2;
    _transformIncre[5] = z2;
 
+
+
+   //该部分三个由欧拉角得到的旋转矩阵相乘，进行位姿修正
+   //Rbc，即_transformSum，由odometry节点输出的10Hz的位姿
+   //      | cbcy*cbcz+sbcx*sbcy*sbcz , sbcx*sbcy*cbcz-cbcy*sbcz , cbcx*sbcy |
+   //Rbc = |      cbcx*sbcz           ,         cbcx*cbcz        ,   -sbcx   |
+   //      | sbcx*cbcy*sbcz-sbcy*cbcz , sbcx*cbcy*cbcz+sbcy*sbcz , cbcy*cbcx |
    float sbcx = sin(_transformSum[0]);
    float cbcx = cos(_transformSum[0]);
    float sbcy = sin(_transformSum[1]);
@@ -103,6 +138,14 @@ void BasicTransformMaintenance::transformAssociateToMap()
    float sbcz = sin(_transformSum[2]);
    float cbcz = cos(_transformSum[2]);
 
+   //Rbl，即_transformBefMapped，由mapping节点输出的之前某帧点云的优化前位姿
+   //      | cbly*cblz+sblx*sbly*sblz , sblx*sbly*cblz-cbly*sblz , cblx*sbly |
+   //Rbl = |      cblx*sblz           ,         cblx*cblz        ,   -sblx   |
+   //      | sblx*cbly*sblz-sbly*cblz , sblx*cbly*cblz+sbly*sblz , cbly*cblx |
+   //Rbl的转置
+   //       | cbly*cblz+sblx*sbly*sblz , cblx*sblz , sblx*cbly*sblz-sbly*cblz |
+   //RblT = | sblx*sbly*cblz-cbly*sblz , cblx*cblz , sblx*cbly*cblz+sbly*sblz |
+   //       |        cblx*sbly         ,   -sblx   ,        cbly*cblx         |
    float sblx = sin(_transformBefMapped[0]);
    float cblx = cos(_transformBefMapped[0]);
    float sbly = sin(_transformBefMapped[1]);
@@ -110,6 +153,10 @@ void BasicTransformMaintenance::transformAssociateToMap()
    float sblz = sin(_transformBefMapped[2]);
    float cblz = cos(_transformBefMapped[2]);
 
+   //Ral，即_transformAftMapped，由mapping节点输出的之前某帧点云的优化后位姿
+   //      | caly*calz+salx*saly*salz , salx*saly*calz-caly*salz , calx*saly |
+   //Ral = |      calx*salz           ,         calx*calz        ,   -salx   |
+   //      | salx*caly*salz-saly*calz , salx*caly*calz+saly*salz , caly*calx |
    float salx = sin(_transformAftMapped[0]);
    float calx = cos(_transformAftMapped[0]);
    float saly = sin(_transformAftMapped[1]);
@@ -117,13 +164,17 @@ void BasicTransformMaintenance::transformAssociateToMap()
    float salz = sin(_transformAftMapped[2]);
    float calz = cos(_transformAftMapped[2]);
 
-   float srx = -sbcx * (salx*sblx + calx * cblx*salz*sblz + calx * calz*cblx*cblz)
-      - cbcx * sbcy*(calx*calz*(cbly*sblz - cblz * sblx*sbly)
-         - calx * salz*(cbly*cblz + sblx * sbly*sblz)
-         + cblx * salx*sbly)
-      - cbcx * cbcy*(calx*salz*(cblz*sbly - cbly * sblx*sblz)
-         - calx * calz*(sbly*sblz + cbly * cblz*sblx)
-         + cblx * cbly*salx);
+   //R = Ral * RblT * Rbc，用之前某帧点云的优化量(优化前后位姿变化量)直接修正odometry节点根据当前点云帧估计的位姿
+   //之所以可以这样做，是因为Rbc本身就是由一帧一帧点云初始/结束时刻的位姿变化量叠加起来的，mapping节点使用sweep to map
+   //方法进行点云匹配可以得到更高精度的点云初始/结束时刻的位姿变化量，自然就需要用这个更高精度的去替代odometry节点
+   //估计的，而且是针对Rbc左乘，即相对于Rbc的固定坐标系(也就是世界坐标系)
+   float srx = -sbcx * (salx * sblx + calx*salz * cblx*sblz + calx*calz * cblx*cblz)
+      - cbcx*sbcy * (calx*calz*(cbly*sblz - cblz * sblx*sbly)
+         - calx*salz * (cbly*cblz + sblx * sbly*sblz)
+         + salx * cblx*sbly)
+      - cbcx*cbcy * (calx*salz * (cblz*sbly - cbly*sblx*sblz)
+         - calx*calz * (sbly*sblz + cbly*cblz*sblx)
+         + salx * cblx*cbly);
    _transformMapped[0] = -asin(srx);
 
    float srycrx = sbcx * (cblx*cblz*(caly*salz - calz * salx*saly)
@@ -159,22 +210,25 @@ void BasicTransformMaintenance::transformAssociateToMap()
          - calx * calz*(sbly*sblz + cbly * cblz*sblx)
          + cblx * cbly*salx)
       + cbcx * cbcz*(salx*sblx + calx * cblx*salz*sblz + calx * calz*cblx*cblz);
-   _transformMapped[2] = atan2(srzcrx / cos(_transformMapped[0]),
-      crzcrx / cos(_transformMapped[0]));
+   _transformMapped[2] = atan2(srzcrx / cos(_transformMapped[0]),crzcrx / cos(_transformMapped[0]));
 
+   //得到修正后的位姿_transformMapped，再将之前的transformInc变换回世界坐标系
+   //绕Z轴旋转
    x1 = cos(_transformMapped[2]) * _transformIncre[3] - sin(_transformMapped[2]) * _transformIncre[4];
    y1 = sin(_transformMapped[2]) * _transformIncre[3] + cos(_transformMapped[2]) * _transformIncre[4];
    z1 = _transformIncre[5];
 
+   //绕X轴旋转
    x2 = x1;
    y2 = cos(_transformMapped[0]) * y1 - sin(_transformMapped[0]) * z1;
    z2 = sin(_transformMapped[0]) * y1 + cos(_transformMapped[0]) * z1;
 
-   _transformMapped[3] = _transformAftMapped[3]
-      - (cos(_transformMapped[1]) * x2 + sin(_transformMapped[1]) * z2);
+   //绕Y轴旋转，这里还要被_transformAftMapped减去，得到最终相对世界坐标系的位置，
+   //因为已经修正了姿态，此处要被_transformAftMapped减去，而不是被_transformBefMapped减去
+   //最好画几个坐标进行示意，更方便理解
+   _transformMapped[3] = _transformAftMapped[3] - (cos(_transformMapped[1]) * x2 + sin(_transformMapped[1]) * z2);
    _transformMapped[4] = _transformAftMapped[4] - y2;
-   _transformMapped[5] = _transformAftMapped[5]
-      - (-sin(_transformMapped[1]) * x2 + cos(_transformMapped[1]) * z2);
+   _transformMapped[5] = _transformAftMapped[5] - (-sin(_transformMapped[1]) * x2 + cos(_transformMapped[1]) * z2);
 }
 
 

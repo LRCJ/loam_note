@@ -48,7 +48,7 @@ TransformMaintenance::TransformMaintenance()
 
 bool TransformMaintenance::setup(ros::NodeHandle &node, ros::NodeHandle &privateNode)
 {
-   // advertise integrated laser odometry topic
+   // advertise integrated laser odometry topic，发布数据
    _pubLaserOdometry2 = node.advertise<nav_msgs::Odometry>("/integrated_to_init", 5);
 
    // subscribe to laser odometry and mapping odometry topics

@@ -46,93 +46,129 @@ bool ScanRegistration::parseParams(const ros::NodeHandle& nh, RegistrationParams
   int iParam = 0;
   float fParam = 0;
 
-  if (nh.getParam("scanPeriod", fParam)) {
-    if (fParam <= 0) {
+  if (nh.getParam("scanPeriod", fParam))
+  {
+    if (fParam <= 0)
+    {
       ROS_ERROR("Invalid scanPeriod parameter: %f (expected > 0)", fParam);
       success = false;
-    } else {
-        config_out.scanPeriod = fParam;
+    }
+    else
+    {
+      config_out.scanPeriod = fParam;
       ROS_INFO("Set scanPeriod: %g", fParam);
     }
   }
 
-  if (nh.getParam("imuHistorySize", iParam)) {
-    if (iParam < 1) {
+  if (nh.getParam("imuHistorySize", iParam))
+  {
+    if (iParam < 1)
+    {
       ROS_ERROR("Invalid imuHistorySize parameter: %d (expected >= 1)", iParam);
       success = false;
-    } else {
-        config_out.imuHistorySize = iParam;
+    }
+    else
+    {
+      config_out.imuHistorySize = iParam;
       ROS_INFO("Set imuHistorySize: %d", iParam);
     }
   }
 
-  if (nh.getParam("featureRegions", iParam)) {
-    if (iParam < 1) {
+  if (nh.getParam("featureRegions", iParam))
+  {
+    if (iParam < 1)
+    {
       ROS_ERROR("Invalid featureRegions parameter: %d (expected >= 1)", iParam);
       success = false;
-    } else {
-        config_out.nFeatureRegions = iParam;
+    }
+    else
+    {
+      config_out.nFeatureRegions = iParam;
       ROS_INFO("Set nFeatureRegions: %d", iParam);
     }
   }
 
-  if (nh.getParam("curvatureRegion", iParam)) {
-    if (iParam < 1) {
+  if (nh.getParam("curvatureRegion", iParam))
+  {
+    if (iParam < 1)
+    {
       ROS_ERROR("Invalid curvatureRegion parameter: %d (expected >= 1)", iParam);
       success = false;
-    } else {
-        config_out.curvatureRegion = iParam;
+    }
+    else
+    {
+      config_out.curvatureRegion = iParam;
       ROS_INFO("Set curvatureRegion: +/- %d", iParam);
     }
   }
 
-  if (nh.getParam("maxCornerSharp", iParam)) {
-    if (iParam < 1) {
+  if (nh.getParam("maxCornerSharp", iParam))
+  {
+    if (iParam < 1)
+    {
       ROS_ERROR("Invalid maxCornerSharp parameter: %d (expected >= 1)", iParam);
       success = false;
-    } else {
-        config_out.maxCornerSharp = iParam;
-        config_out.maxCornerLessSharp = 10 * iParam;
+    }
+    else
+    {
+      config_out.maxCornerSharp = iParam;
+      config_out.maxCornerLessSharp = 10 * iParam;
       ROS_INFO("Set maxCornerSharp / less sharp: %d / %d", iParam, config_out.maxCornerLessSharp);
     }
   }
 
-  if (nh.getParam("maxCornerLessSharp", iParam)) {
-    if (iParam < config_out.maxCornerSharp) {
+  if (nh.getParam("maxCornerLessSharp", iParam))
+  {
+    if (iParam < config_out.maxCornerSharp)
+    {
       ROS_ERROR("Invalid maxCornerLessSharp parameter: %d (expected >= %d)", iParam, config_out.maxCornerSharp);
       success = false;
-    } else {
-        config_out.maxCornerLessSharp = iParam;
+    }
+    else
+    {
+      config_out.maxCornerLessSharp = iParam;
       ROS_INFO("Set maxCornerLessSharp: %d", iParam);
     }
   }
 
-  if (nh.getParam("maxSurfaceFlat", iParam)) {
-    if (iParam < 1) {
+  if (nh.getParam("maxSurfaceFlat", iParam))
+  {
+    if (iParam < 1)
+    {
       ROS_ERROR("Invalid maxSurfaceFlat parameter: %d (expected >= 1)", iParam);
       success = false;
-    } else {
-        config_out.maxSurfaceFlat = iParam;
+    }
+    else
+    {
+      config_out.maxSurfaceFlat = iParam;
       ROS_INFO("Set maxSurfaceFlat: %d", iParam);
     }
   }
 
-  if (nh.getParam("surfaceCurvatureThreshold", fParam)) {
-    if (fParam < 0.001) {
+  if (nh.getParam("surfaceCurvatureThreshold", fParam))
+  {
+    if (fParam < 0.001)
+    {
       ROS_ERROR("Invalid surfaceCurvatureThreshold parameter: %f (expected >= 0.001)", fParam);
       success = false;
-    } else {
-        config_out.surfaceCurvatureThreshold = fParam;
+    }
+    else
+    {
+      config_out.surfaceCurvatureThreshold = fParam;
       ROS_INFO("Set surfaceCurvatureThreshold: %g", fParam);
     }
   }
 
-  if (nh.getParam("lessFlatFilterSize", fParam)) {
-    if (fParam < 0.001) {
+  if (nh.getParam("lessFlatFilterSize", fParam))
+  {
+    if (fParam < 0.001)
+    {
       ROS_ERROR("Invalid lessFlatFilterSize parameter: %f (expected >= 0.001)", fParam);
       success = false;
-    } else {
-        config_out.lessFlatFilterSize = fParam;
+    }
+    else
+    {
+      config_out.lessFlatFilterSize = fParam;
       ROS_INFO("Set lessFlatFilterSize: %g", fParam);
     }
   }
