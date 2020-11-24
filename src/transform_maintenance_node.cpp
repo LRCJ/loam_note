@@ -11,9 +11,14 @@ int main(int argc, char **argv)
 
   loam::TransformMaintenance transMaintenance;
 
-  if (transMaintenance.setup(node, privateNode)) {
+  if (transMaintenance.setup(node, privateNode))
+  {
     // initialization successful
     ros::spin();
+  }
+  else
+  {
+  	ROS_INFO("transformMaintenance node initialization failed!");
   }
 
   return 0;

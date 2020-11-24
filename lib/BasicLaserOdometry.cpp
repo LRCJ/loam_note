@@ -16,11 +16,11 @@ using std::fabs;
 using std::pow;
 
 
-BasicLaserOdometry::BasicLaserOdometry(float scanPeriod, size_t maxIterations) :
-   _scanPeriod(scanPeriod),
+BasicLaserOdometry::BasicLaserOdometry() :
+   _scanPeriod(0.1),
    _systemInited(false),
    _frameCount(0),
-   _maxIterations(maxIterations),
+   _maxIterations(25),
    _deltaTAbort(0.1),
    _deltaRAbort(0.1),
    _cornerPointsSharp(new pcl::PointCloud<pcl::PointXYZI>()),
@@ -41,11 +41,13 @@ void BasicLaserOdometry::transformToStart(const pcl::PointXYZI& pi, pcl::PointXY
    //插值系数计算
    float s = (1.f / _scanPeriod) * (pi.intensity - int(pi.intensity));
 
+   //对位置进行插值
    po.x = pi.x - s * _transform.pos.x();
    po.y = pi.y - s * _transform.pos.y();
    po.z = pi.z - s * _transform.pos.z();
    po.intensity = pi.intensity;
 
+   //对角度进行插值
    Angle rx = -s * _transform.rot_x.rad();
    Angle ry = -s * _transform.rot_y.rad();
    Angle rz = -s * _transform.rot_z.rad();
@@ -235,8 +237,9 @@ void BasicLaserOdometry::updateIMU(pcl::PointCloud<pcl::PointXYZ> const& imuTran
    _imuVeloFromStart = imuTrans.points[3];
 }
 
-void BasicLaserOdometry::process()
+void BasicLaserOdometry::process(char* log)
 {
+   char s[50];//log info
    if (!_systemInited)
    {//运动估计需要前后两帧点云，刚收到第一帧点云时先不进行处理，得到收到第二帧再进行处理
       //并保证上一次的点云_lastCornerCloud存储的是上一帧点云中曲率较大的点云，即带有less的点云
@@ -251,6 +254,8 @@ void BasicLaserOdometry::process()
       _transformSum.rot_z += _imuRollStart;
 
       _systemInited = true;
+      sprintf(s,"laserOdometry systemInited!");
+      strcpy(log,s);
       return;
    }
 
@@ -266,6 +271,7 @@ void BasicLaserOdometry::process()
 
    size_t lastCornerCloudSize = _lastCornerCloud->points.size();
    size_t lastSurfaceCloudSize = _lastSurfaceCloud->points.size();
+   size_t iterCount = 0;
 
    if (lastCornerCloudSize > 10 && lastSurfaceCloudSize > 100)
    {
@@ -285,7 +291,7 @@ void BasicLaserOdometry::process()
 
       //Levenberg-Marquardt算法(L-M method)，非线性最小二乘算法，最优化算法的一种
       //最多迭代25次
-      for (size_t iterCount = 0; iterCount < _maxIterations; iterCount++)
+      for (iterCount = 0; iterCount < _maxIterations; iterCount++)
       {
          pcl::PointXYZI pointSel, pointProj, tripod1, tripod2, tripod3;
          _laserCloudOri->clear();//每次迭代前清空上一次迭代中存储的被选中的上一帧点云的点
@@ -769,7 +775,7 @@ void BasicLaserOdometry::process()
          if (deltaR < _deltaRAbort && deltaT < _deltaTAbort)
             break;//如果很小就停止迭代
       }//迭代结束
-   }
+   }//特征点数量是否满足要求
 
    Angle rx, ry, rz;
    //求相对于世界坐标系的旋转量,垂直方向上1.05倍修正?
@@ -820,7 +826,8 @@ void BasicLaserOdometry::process()
       _lastCornerKDTree.setInputCloud(_lastCornerCloud);
       _lastSurfaceKDTree.setInputCloud(_lastSurfaceCloud);
    }
-   
+   sprintf(s,"iterationCount:%lu/%lu,isDegenerate:%s",iterCount,_maxIterations,isDegenerate?"true":"false");
+   strcpy(log,s);
 }
 
 

@@ -296,12 +296,15 @@ bool BasicLaserMapping::createDownsizedMap()
    return true;
 }
 
-bool BasicLaserMapping::process(Time const& laserOdometryTime)
+bool BasicLaserMapping::process(Time const& laserOdometryTime,char* log)
 {
-   // skip some frames?!?
+   char s[50];//log info
+   // skip some frames???
    _frameCount++;// _frameCount = 0
    if (_frameCount < _stackFrameNum) // _stackFrameNum = 1
    {
+      sprintf(s,"_frameCount(=%ld)<_stackFrameNum(=%d)",_frameCount,_stackFrameNum);
+      strcpy(log,s);
       return false;
    }
    _frameCount = 0;
@@ -599,7 +602,8 @@ bool BasicLaserMapping::process(Time const& laserOdometryTime)
    _laserCloudSurfStack->clear();
 
    // run pose optimization
-   optimizeTransformTobeMapped();
+   optimizeTransformTobeMapped(s);
+   strcpy(log,s);
 
    // store down sized corner stack points in corresponding cube clouds
    //将edge point归入对应的cube中
@@ -696,11 +700,13 @@ nanoflann::KdTreeFLANN<pcl::PointXYZI> kdtreeCornerFromMap;
 nanoflann::KdTreeFLANN<pcl::PointXYZI> kdtreeSurfFromMap;
 
 //优化位姿
-void BasicLaserMapping::optimizeTransformTobeMapped()
+void BasicLaserMapping::optimizeTransformTobeMapped(char* log)
 {
+   char s[50];
    if (_laserCloudCornerFromMap->size() <= 10 || _laserCloudSurfFromMap->size() <= 100)
    {
-      printf("There are few feature points!Stop optimization!\n");
+      sprintf(s,"There are few feature points!Stop optimization!");
+      strcpy(log,s);
       return;
    }
 
@@ -908,10 +914,7 @@ void BasicLaserMapping::optimizeTransformTobeMapped()
 
       size_t laserCloudSelNum = _laserCloudOri.size();
       if (laserCloudSelNum < 50)//特征点大于50个才进行优化迭代
-      {
-         printf("There are few feature points!Didn't iteration!\n");
          continue;
-      }
 
       //这部分的迭代过程与LaserOdometry节点的迭代过程系统，都是使用高斯牛顿法
       Eigen::Matrix<float, Eigen::Dynamic, 6> matA(laserCloudSelNum, 6);
@@ -1008,13 +1011,12 @@ void BasicLaserMapping::optimizeTransformTobeMapped()
                           pow(matX(5, 0) * 100, 2));
 
       if (deltaR < _deltaRAbort && deltaT < _deltaTAbort)
-      {
-         printf("stop iteration for error small enough!\n");
          break;//旋转平移量足够小就停止迭代
-      }
    }
-   printf("complete a transform optimization!iterCount=%lu\n",iterCount);
    transformUpdate();
+
+   sprintf(s,"iterationCount:%lu/%lu,isDegenerate:%s",iterCount,_maxIterations,isDegenerate?"true":"false");
+   strcpy(log,s);
 }
 
 

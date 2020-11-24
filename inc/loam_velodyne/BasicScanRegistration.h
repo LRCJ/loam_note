@@ -34,14 +34,7 @@ namespace loam
   class RegistrationParams
   {
   public:
-    RegistrationParams(const float& scanPeriod_ = 0.1,
-      const int& imuHistorySize_ = 200,
-      const int& nFeatureRegions_ = 6,
-      const int& curvatureRegion_ = 5,
-      const int& maxCornerSharp_ = 2,
-      const int& maxSurfaceFlat_ = 4,
-      const float& lessFlatFilterSize_ = 0.2,
-      const float& surfaceCurvatureThreshold_ = 0.1);
+    RegistrationParams();
 
     /** The time per scan. */
     float scanPeriod;

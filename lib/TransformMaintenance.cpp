@@ -48,20 +48,25 @@ TransformMaintenance::TransformMaintenance()
 
 bool TransformMaintenance::setup(ros::NodeHandle &node, ros::NodeHandle &privateNode)
 {
-   // advertise integrated laser odometry topic，发布数据
-   _pubLaserOdometry2 = node.advertise<nav_msgs::Odometry>("/integrated_to_init", 5);
+  // advertise integrated laser odometry topic，发布数据
+  _pubLaserOdometry2 = node.advertise<nav_msgs::Odometry>("/integrated_to_init", 5);
+  //累计相对世界坐标系的位姿信息，可在rviz订阅该数据，可视化累积的位姿信息形成轨迹
+  std::string path_topic_name;
+  if(!privateNode.getParam("path_topic_",path_topic_name))
+    path_topic_name = std::string("path_mapping");
+  path_publisher_ = privateNode.advertise<nav_msgs::Path>(path_topic_name, 2);
+  path_.header.frame_id = "camera_init";
+  path_.header.stamp = ros::Time::now();
 
-   // subscribe to laser odometry and mapping odometry topics
-   _subLaserOdometry = node.subscribe<nav_msgs::Odometry>
-      ("/laser_odom_to_init", 5, &TransformMaintenance::laserOdometryHandler, this);
+  // subscribe to laser odometry and mapping odometry topics
+  _subLaserOdometry = node.subscribe<nav_msgs::Odometry>
+    ("/laser_odom_to_init", 5, &TransformMaintenance::laserOdometryHandler, this);
 
-   _subOdomAftMapped = node.subscribe<nav_msgs::Odometry>
-      ("/aft_mapped_to_init", 5, &TransformMaintenance::odomAftMappedHandler, this);
+  _subOdomAftMapped = node.subscribe<nav_msgs::Odometry>
+    ("/aft_mapped_to_init", 5, &TransformMaintenance::odomAftMappedHandler, this);
 
-   return true;
+  return true;
 }
-
-
 
 void TransformMaintenance::laserOdometryHandler(const nav_msgs::Odometry::ConstPtr& laserOdometry)
 {
@@ -81,17 +86,34 @@ void TransformMaintenance::laserOdometryHandler(const nav_msgs::Odometry::ConstP
    _laserOdometry2.header.stamp = laserOdometry->header.stamp;
    _laserOdometry2.pose.pose.orientation.x = -geoQuat.y;
    _laserOdometry2.pose.pose.orientation.y = -geoQuat.z;
-   _laserOdometry2.pose.pose.orientation.z = geoQuat.x;
+   _laserOdometry2.pose.pose.orientation.z = geoQuat.x;/*
+   _laserOdometry2.pose.pose.orientation.x = geoQuat.x;
+   _laserOdometry2.pose.pose.orientation.y = geoQuat.y;
+   _laserOdometry2.pose.pose.orientation.z = geoQuat.z;*/
    _laserOdometry2.pose.pose.orientation.w = geoQuat.w;
    _laserOdometry2.pose.pose.position.x = transformMapped()[3];
    _laserOdometry2.pose.pose.position.y = transformMapped()[4];
    _laserOdometry2.pose.pose.position.z = transformMapped()[5];
-   _pubLaserOdometry2.publish(_laserOdometry2);
+   _pubLaserOdometry2.publish(_laserOdometry2);//最终发布的位姿结果
 
-   _laserOdometryTrans2.stamp_ = laserOdometry->header.stamp;
-   _laserOdometryTrans2.setRotation(tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w));
-   _laserOdometryTrans2.setOrigin(tf::Vector3(transformMapped()[3], transformMapped()[4], transformMapped()[5]));
-   _tfBroadcaster2.sendTransform(_laserOdometryTrans2);
+  //设置累计位姿信息，并使用“path_topic_”Topic发布累计位姿信息，rivz可使用该数据可视化运动轨迹
+  geometry_msgs::PoseStamped this_pose;
+  this_pose.header.frame_id = laserOdometry->header.frame_id;
+  this_pose.header.stamp = laserOdometry->header.stamp;
+  this_pose.pose.position.x = transformMapped()[3];
+  this_pose.pose.position.y = transformMapped()[4];
+  this_pose.pose.position.z = transformMapped()[5];
+  this_pose.pose.orientation.x = -geoQuat.y;
+  this_pose.pose.orientation.y = -geoQuat.z;
+  this_pose.pose.orientation.z = geoQuat.x;
+  this_pose.pose.orientation.w = geoQuat.w;
+  path_.poses.push_back(this_pose);
+  path_publisher_.publish(path_);
+
+  _laserOdometryTrans2.stamp_ = laserOdometry->header.stamp;
+  _laserOdometryTrans2.setRotation(tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w));
+  _laserOdometryTrans2.setOrigin(tf::Vector3(transformMapped()[3], transformMapped()[4], transformMapped()[5]));
+  _tfBroadcaster2.sendTransform(_laserOdometryTrans2);
 }
 
 void TransformMaintenance::odomAftMappedHandler(const nav_msgs::Odometry::ConstPtr& odomAftMapped)

@@ -18,7 +18,7 @@ int main(int argc, char **argv)
   }
   else
   {
-  	ROS_INFO("multiScanRegistration initialization failed!");
+  	ROS_INFO("multiScanRegistration node initialization failed!");
   }
 
   return 0;

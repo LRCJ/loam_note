@@ -56,14 +56,14 @@ namespace loam
   class LaserOdometry : public BasicLaserOdometry
   {
   public:
-    explicit LaserOdometry(float scanPeriod = 0.1, uint16_t ioRatio = 2, size_t maxIterations = 25);
+    explicit LaserOdometry();
 
     /** \brief Setup component.
      *
      * @param node the ROS node handle
      * @param privateNode the private ROS node handle
      */
-    virtual bool setup(ros::NodeHandle& node,
+    bool setup(ros::NodeHandle& node,
       ros::NodeHandle& privateNode);
 
     /** \brief Handler method for a new sharp corner cloud.

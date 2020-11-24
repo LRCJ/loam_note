@@ -6,23 +6,16 @@
 namespace loam
 {
 
-RegistrationParams::RegistrationParams(const float& scanPeriod_,
-                                       const int& imuHistorySize_,
-                                       const int& nFeatureRegions_,
-                                       const int& curvatureRegion_,
-                                       const int& maxCornerSharp_,
-                                       const int& maxSurfaceFlat_,
-                                       const float& lessFlatFilterSize_,
-                                       const float& surfaceCurvatureThreshold_)
-    : scanPeriod(scanPeriod_),
-      imuHistorySize(imuHistorySize_),
-      nFeatureRegions(nFeatureRegions_),
-      curvatureRegion(curvatureRegion_),
-      maxCornerSharp(maxCornerSharp_),
-      maxCornerLessSharp(10 * maxCornerSharp_),
-      maxSurfaceFlat(maxSurfaceFlat_),
-      lessFlatFilterSize(lessFlatFilterSize_),
-      surfaceCurvatureThreshold(surfaceCurvatureThreshold_)
+RegistrationParams::RegistrationParams() :
+      scanPeriod(0.1),
+      imuHistorySize(200),
+      nFeatureRegions(6),
+      curvatureRegion(5),
+      maxCornerSharp(2),
+      maxCornerLessSharp(10 * 2),
+      maxSurfaceFlat(4),
+      lessFlatFilterSize(0.2),
+      surfaceCurvatureThreshold(0.1)
 {};
 
 void BasicScanRegistration::processScanlines(const Time& scanTime, std::vector<pcl::PointCloud<pcl::PointXYZI>> const& laserCloudScans)
@@ -63,7 +56,8 @@ void BasicScanRegistration::reset(const Time& scanTime)
 //  }
 
   // clear internal cloud buffers at the beginning of a sweep
-  if (true/*newSweep*/) {
+  if (true/*newSweep*/)
+  {
     _sweepStart = scanTime;
 
     // clear cloud buffers
@@ -78,10 +72,12 @@ void BasicScanRegistration::reset(const Time& scanTime)
   }
 }
 
-/*
+
+//有关IMU数据处理部分，被MultiScanRegistration::handleIMUMessage()调用
 void BasicScanRegistration::updateIMUData(Vector3& acc, IMUState& newState)
 {
-  if (_imuHistory.size() > 0) {
+  if (_imuHistory.size() > 0)
+  {
     // accumulate IMU position and velocity over time
     rotateZXY(acc, newState.roll, newState.pitch, newState.yaw);
 
@@ -97,7 +93,6 @@ void BasicScanRegistration::updateIMUData(Vector3& acc, IMUState& newState)
   _imuHistory.push(newState);
 }
 
-
 void BasicScanRegistration::projectPointToStartOfSweep(pcl::PointXYZI& point, float relTime)
 {
   // project point to the start of the sweep using corresponding IMU data
@@ -108,7 +103,6 @@ void BasicScanRegistration::projectPointToStartOfSweep(pcl::PointXYZI& point, fl
   }
 }
 
-
 void BasicScanRegistration::setIMUTransformFor(const float& relTime)
 {
   interpolateIMUStateFor(relTime, _imuCur);
@@ -116,8 +110,6 @@ void BasicScanRegistration::setIMUTransformFor(const float& relTime)
   float relSweepTime = toSec(_scanTime - _sweepStart) + relTime;
   _imuPositionShift = _imuCur.position - _imuStart.position - _imuStart.velocity * relSweepTime;
 }
-
-
 
 void BasicScanRegistration::transformToStartIMU(pcl::PointXYZI& point)
 {
@@ -133,25 +125,53 @@ void BasicScanRegistration::transformToStartIMU(pcl::PointXYZI& point)
   rotateYXZ(point, -_imuStart.yaw, -_imuStart.pitch, -_imuStart.roll);
 }
 
-
-
 void BasicScanRegistration::interpolateIMUStateFor(const float &relTime, IMUState &outputState)
 {
   double timeDiff = toSec(_scanTime - _imuHistory[_imuIdx].stamp) + relTime;
-  while (_imuIdx < _imuHistory.size() - 1 && timeDiff > 0) {
+  while (_imuIdx < _imuHistory.size() - 1 && timeDiff > 0)
+  {
     _imuIdx++;
     timeDiff = toSec(_scanTime - _imuHistory[_imuIdx].stamp) + relTime;
   }
 
-  if (_imuIdx == 0 || timeDiff > 0) {
+  if (_imuIdx == 0 || timeDiff > 0)
+  {
     outputState = _imuHistory[_imuIdx];
-  } else {
+  }
+  else
+  {
     float ratio = -timeDiff / toSec(_imuHistory[_imuIdx].stamp - _imuHistory[_imuIdx - 1].stamp);
     IMUState::interpolate(_imuHistory[_imuIdx], _imuHistory[_imuIdx - 1], ratio, outputState);
   }
-}*/
+}
+
+void BasicScanRegistration::updateIMUTransform()
+{
+  _imuTrans[0].x = _imuStart.pitch.rad();
+  _imuTrans[0].y = _imuStart.yaw.rad();
+  _imuTrans[0].z = _imuStart.roll.rad();
+
+  _imuTrans[1].x = _imuCur.pitch.rad();
+  _imuTrans[1].y = _imuCur.yaw.rad();
+  _imuTrans[1].z = _imuCur.roll.rad();
+
+  Vector3 imuShiftFromStart = _imuPositionShift;
+  rotateYXZ(imuShiftFromStart, -_imuStart.yaw, -_imuStart.pitch, -_imuStart.roll);
+
+  _imuTrans[2].x = imuShiftFromStart.x();
+  _imuTrans[2].y = imuShiftFromStart.y();
+  _imuTrans[2].z = imuShiftFromStart.z();
+
+  Vector3 imuVelocityFromStart = _imuCur.velocity - _imuStart.velocity;
+  rotateYXZ(imuVelocityFromStart, -_imuStart.yaw, -_imuStart.pitch, -_imuStart.roll);
+
+  _imuTrans[3].x = imuVelocityFromStart.x();
+  _imuTrans[3].y = imuVelocityFromStart.y();
+  _imuTrans[3].z = imuVelocityFromStart.z();
+}
 
 
+//提取特征
 void BasicScanRegistration::extractFeatures(const uint16_t& beginIdx)
 {
   // extract features from individual scans
@@ -254,32 +274,6 @@ void BasicScanRegistration::extractFeatures(const uint16_t& beginIdx)
     _surfacePointsLessFlat += surfPointsLessFlatScanDS;
   }
 }
-
-/*
-void BasicScanRegistration::updateIMUTransform()
-{
-  _imuTrans[0].x = _imuStart.pitch.rad();
-  _imuTrans[0].y = _imuStart.yaw.rad();
-  _imuTrans[0].z = _imuStart.roll.rad();
-
-  _imuTrans[1].x = _imuCur.pitch.rad();
-  _imuTrans[1].y = _imuCur.yaw.rad();
-  _imuTrans[1].z = _imuCur.roll.rad();
-
-  Vector3 imuShiftFromStart = _imuPositionShift;
-  rotateYXZ(imuShiftFromStart, -_imuStart.yaw, -_imuStart.pitch, -_imuStart.roll);
-
-  _imuTrans[2].x = imuShiftFromStart.x();
-  _imuTrans[2].y = imuShiftFromStart.y();
-  _imuTrans[2].z = imuShiftFromStart.z();
-
-  Vector3 imuVelocityFromStart = _imuCur.velocity - _imuStart.velocity;
-  rotateYXZ(imuVelocityFromStart, -_imuStart.yaw, -_imuStart.pitch, -_imuStart.roll);
-
-  _imuTrans[3].x = imuVelocityFromStart.x();
-  _imuTrans[3].y = imuVelocityFromStart.y();
-  _imuTrans[3].z = imuVelocityFromStart.z();
-}*/
 
 
 void BasicScanRegistration::setRegionBuffersFor(const size_t& startIdx, const size_t& endIdx)

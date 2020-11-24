@@ -80,7 +80,7 @@ public:
    explicit BasicLaserMapping();
 
    /** \brief Try to process buffered data. */
-   bool process(Time const& laserOdometryTime);
+   bool process(Time const& laserOdometryTime,char* log);
    void updateIMU(IMUState2 const& newState);
    void updateOdometry(double pitch, double yaw, double roll, double x, double y, double z);
    void updateOdometry(Twist const& twist);
@@ -112,7 +112,7 @@ public:
 
 private:
    /** Run an optimization. */
-   void optimizeTransformTobeMapped();
+   void optimizeTransformTobeMapped(char* log);
 
    void transformAssociateToMap();
    void transformUpdate();

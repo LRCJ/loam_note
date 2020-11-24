@@ -13,10 +13,10 @@ namespace loam
   class BasicLaserOdometry
   {
   public:
-    explicit BasicLaserOdometry(float scanPeriod = 0.1, size_t maxIterations = 25);
+    explicit BasicLaserOdometry();
 
     /** \brief Try to process buffered data. */
-    void process();
+    void process(char* log);
     void updateIMU(pcl::PointCloud<pcl::PointXYZ> const& imuTrans);
 
     auto& cornerPointsSharp()     { return _cornerPointsSharp; }

@@ -48,7 +48,7 @@ LaserMapping::LaserMapping()
 
 
 bool LaserMapping::setup(ros::NodeHandle& node, ros::NodeHandle& privateNode)
-{/*
+{
    // fetch laser mapping params
    float fParam;
    int iParam;
@@ -63,10 +63,10 @@ bool LaserMapping::setup(ros::NodeHandle& node, ros::NodeHandle& privateNode)
       else
       {
          setScanPeriod(fParam);
-         ROS_INFO("Set scanPeriod: %g", fParam);
+         ROS_INFO("laserMapping node set scanPeriod: %g", fParam);
       }
    }
-
+   //默认最大迭代次数是10次
    if (privateNode.getParam("maxIterations", iParam))
    {
       if (iParam < 1)
@@ -77,10 +77,10 @@ bool LaserMapping::setup(ros::NodeHandle& node, ros::NodeHandle& privateNode)
       else
       {
          setMaxIterations(iParam);
-         ROS_INFO("Set maxIterations: %d", iParam);
+         ROS_INFO("laserMapping node set maxIterations: %d", iParam);
       }
    }
-
+   //平移量和旋转量的允许误差量，源码默认值为0.05
    if (privateNode.getParam("deltaTAbort", fParam))
    {
       if (fParam <= 0)
@@ -91,10 +91,9 @@ bool LaserMapping::setup(ros::NodeHandle& node, ros::NodeHandle& privateNode)
       else
       {
          setDeltaTAbort(fParam);
-         ROS_INFO("Set deltaTAbort: %g", fParam);
+         ROS_INFO("laserMapping node set deltaTAbort: %g", fParam);
       }
    }
-
    if (privateNode.getParam("deltaRAbort", fParam))
    {
       if (fParam <= 0)
@@ -105,10 +104,9 @@ bool LaserMapping::setup(ros::NodeHandle& node, ros::NodeHandle& privateNode)
       else
       {
          setDeltaRAbort(fParam);
-         ROS_INFO("Set deltaRAbort: %g", fParam);
+         ROS_INFO("laserMapping node set deltaRAbort: %g", fParam);
       }
    }
-
    if (privateNode.getParam("cornerFilterSize", fParam))
    {
       if (fParam < 0.001)
@@ -119,10 +117,9 @@ bool LaserMapping::setup(ros::NodeHandle& node, ros::NodeHandle& privateNode)
       else
       {
          downSizeFilterCorner().setLeafSize(fParam, fParam, fParam);
-         ROS_INFO("Set corner down size filter leaf size: %g", fParam);
+         ROS_INFO("laserMapping node set corner down size filter leaf size: %g", fParam);
       }
    }
-
    if (privateNode.getParam("surfaceFilterSize", fParam))
    {
       if (fParam < 0.001)
@@ -133,10 +130,9 @@ bool LaserMapping::setup(ros::NodeHandle& node, ros::NodeHandle& privateNode)
       else
       {
          downSizeFilterSurf().setLeafSize(fParam, fParam, fParam);
-         ROS_INFO("Set surface down size filter leaf size: %g", fParam);
+         ROS_INFO("laserMapping node set surface down size filter leaf size: %g", fParam);
       }
    }
-
    if (privateNode.getParam("mapFilterSize", fParam))
    {
       if (fParam < 0.001)
@@ -147,9 +143,9 @@ bool LaserMapping::setup(ros::NodeHandle& node, ros::NodeHandle& privateNode)
       else
       {
          downSizeFilterMap().setLeafSize(fParam, fParam, fParam);
-         ROS_INFO("Set map down size filter leaf size: %g", fParam);
+         ROS_INFO("laserMapping node set map down size filter leaf size: %g", fParam);
       }
-   }*/
+   }
 
    // advertise laser mapping topics
    _pubLaserCloudSurround = node.advertise<sensor_msgs::PointCloud2>("/laser_cloud_surround", 1);
@@ -167,7 +163,7 @@ bool LaserMapping::setup(ros::NodeHandle& node, ros::NodeHandle& privateNode)
       ("/laser_odom_to_init", 5, &LaserMapping::laserOdometryHandler, this);
 
    _subLaserCloudFullRes = node.subscribe<sensor_msgs::PointCloud2>
-      ("/velodyne_cloud_3", 2, &LaserMapping::laserCloudFullResHandler, this);
+      ("/full_point_cloud_3", 2, &LaserMapping::laserCloudFullResHandler, this);
 
    // subscribe to IMU topic
    _subImu = node.subscribe<sensor_msgs::Imu>("/imu/data", 50, &LaserMapping::imuHandler, this);
@@ -208,7 +204,6 @@ void LaserMapping::laserOdometryHandler(const nav_msgs::Odometry::ConstPtr& lase
    double roll, pitch, yaw;
    geometry_msgs::Quaternion geoQuat = laserOdometry->pose.pose.orientation;
    tf::Matrix3x3(tf::Quaternion(geoQuat.z, -geoQuat.x, -geoQuat.y, geoQuat.w)).getRPY(roll, pitch, yaw);
-   ROS_INFO("LaserMapping node update Odometry data!Data time is [%u.%09u]",_timeLaserOdometry.sec,_timeLaserOdometry.nsec);
    updateOdometry(-pitch, -yaw, roll,
                   laserOdometry->pose.pose.position.x,
                   laserOdometry->pose.pose.position.y,
@@ -266,18 +261,18 @@ void LaserMapping::process()
       return;
 
    reset();// reset flags, etc.
-   ROS_INFO("LaserMapping node Start to process data from laserOdometry!Data time is [%u.%09u]",_timeLaserOdometry.sec,_timeLaserOdometry.nsec);
+   char log[50];
    //由于mapping过程计算量大，程序会堵塞在此处直到完成mapping，在此期间，由于无法执行ros::spinOnce()，
    //也就无法调用回调函数，即_laserCloudCornerLast、_laserCloudSurfLast、
    //_laserCloudFullRes以及_transformSum变量是无法更新的
-   if (!BasicLaserMapping::process(fromROSTime(_timeLaserOdometry)))
+   if (!BasicLaserMapping::process(fromROSTime(_timeLaserOdometry),log))
    {
-      ROS_INFO("LaserMapping node didn't complete a mapping!");
+      ROS_INFO("LaserMapping node didn't complete a mapping!%s!",log);
       return;
    }
    else
    {
-      ROS_INFO("LaserMapping node complete a mapping!");
+      ROS_INFO("LaserMapping node complete a mapping!%s!",log);
    }
 
    publishResult();

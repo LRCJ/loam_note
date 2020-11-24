@@ -9,19 +9,20 @@
     <param name="lidar" value="$(arg lidarName)" /> <!-- options: VLP-16  HDL-32  HDL-64E PandarQT-->
     <param name="scanPeriod" value="$(arg scanPeriod)" />
     <param name="PointCloudTopicName" value="$(arg pointCloudName)" />
+    <param name="systemDelay" value="20" />
   </node>
 
-  <node pkg="loam_velodyne" type="laserOdometry" name="laserOdometry" output="screen" respawn="true">
-    <param name="scanPeriod" value="$(arg scanPeriod)" />
+  <node pkg="loam_velodyne" type="laserOdometry" name="laserOdometry" output="log" respawn="true">
   </node>
 
-  <node pkg="loam_velodyne" type="laserMapping" name="laserMapping" output="screen">
-    <param name="maxIterations" value="60" />
-    <param name="deltaTAbort" value="0.001" />
-    <param name="deltaRAbort" value="0.001" />
+  <node pkg="loam_velodyne" type="laserMapping" name="laserMapping" output="log">
+    <param name="maxIterations" value="10" /><!--默认是10-->
+    <param name="deltaTAbort" value="0.05" /><!--默认是0.05-->
+    <param name="deltaRAbort" value="0.05" /><!--默认是0.05-->
   </node>
 
-  <node pkg="loam_velodyne" type="transformMaintenance" name="transformMaintenance" output="screen">
+  <node pkg="loam_velodyne" type="transformMaintenance" name="transformMaintenance" output="log">
+    <param name="path_topic_" value="path_mapping" />
   </node>
 
   <group if="$(arg rviz)">

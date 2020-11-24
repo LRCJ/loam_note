@@ -130,13 +130,6 @@ public:
    */
   void handleIMUMessage(const sensor_msgs::Imu::ConstPtr& imuIn);
 
-    /** \brief Parse node parameter.
-  *
-  * @param nh the ROS node handle
-  * @return true, if all specified parameters are valid, false if at least one specified parameter is invalid
-  */
-  bool parseParams(const ros::NodeHandle& nh, RegistrationParams& config_out);
-
 private:
   /** \brief Process a new input cloud.
    *
@@ -151,7 +144,7 @@ protected:
   void publishResult();
 
 private:
-  int _systemDelay = 20;             ///< system startup delay counter
+  int _systemDelay;             ///< system startup delay counter
   MultiScanMapper _scanMapper;  ///< mapper for mapping vertical point angles to scan ring IDs
   std::vector<pcl::PointCloud<pcl::PointXYZI> > _laserCloudScans;
   ros::Subscriber _subLaserCloud;   ///< input cloud message subscriber

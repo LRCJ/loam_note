@@ -36,6 +36,7 @@
 
 #include <ros/node_handle.h>
 #include <nav_msgs/Odometry.h>
+#include <nav_msgs/Path.h>
 #include <tf/transform_broadcaster.h>
 
 #include "loam_velodyne/BasicTransformMaintenance.h"
@@ -73,10 +74,13 @@ private:
   tf::StampedTransform _laserOdometryTrans2;  ///< latest integrated laser odometry transformation
 
   ros::Publisher _pubLaserOdometry2;          ///< integrated laser odometry publisher
+  ros::Publisher path_publisher_;
   tf::TransformBroadcaster _tfBroadcaster2;   ///< integrated laser odometry transformation broadcaster
 
   ros::Subscriber _subLaserOdometry;    ///< (high frequency) laser odometry subscriber
   ros::Subscriber _subOdomAftMapped;    ///< (low frequency) mapping odometry subscriber
+
+  nav_msgs::Path path_;
 };
 
 } // end namespace loam

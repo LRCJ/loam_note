@@ -48,9 +48,8 @@ namespace loam
   using std::pow;
 
 
-  LaserOdometry::LaserOdometry(float scanPeriod, uint16_t ioRatio, size_t maxIterations):
-    BasicLaserOdometry(scanPeriod, maxIterations),
-    _ioRatio(ioRatio)
+  LaserOdometry::LaserOdometry():
+    _ioRatio(2)
   {
     // initialize odometry and odometry tf messages
     _laserOdometryMsg.header.frame_id = "/camera_init";
@@ -66,7 +65,7 @@ namespace loam
     // fetch laser odometry params
     float fParam;
     int iParam;
-/*
+
     if (privateNode.getParam("scanPeriod", fParam))
     {
       if (fParam <= 0)
@@ -77,9 +76,11 @@ namespace loam
       else
       {
         setScanPeriod(fParam);
-        ROS_INFO("Set scanPeriod: %g", fParam);
+        ROS_INFO("laserOdometry node set scanPeriod: %g", fParam);
       }
     }
+    else
+      setScanPeriod(0.1);
 
     if (privateNode.getParam("ioRatio", iParam))
     {
@@ -91,9 +92,11 @@ namespace loam
       else
       {
         _ioRatio = iParam;
-        ROS_INFO("Set ioRatio: %d", iParam);
+        ROS_INFO("laserOdometry node set ioRatio: %d", iParam);
       }
     }
+    else
+      _ioRatio = 2;
 
     if (privateNode.getParam("maxIterations", iParam))
     {
@@ -105,7 +108,7 @@ namespace loam
       else
       {
         setMaxIterations(iParam);
-        ROS_INFO("Set maxIterations: %d", iParam);
+        ROS_INFO("laserOdometry node set maxIterations: %d", iParam);
       }
     }
 
@@ -119,7 +122,7 @@ namespace loam
       else
       {
         setDeltaTAbort(fParam);
-        ROS_INFO("Set deltaTAbort: %g", fParam);
+        ROS_INFO("laserOdometry node set deltaTAbort: %g", fParam);
       }
     }
 
@@ -133,14 +136,14 @@ namespace loam
       else
       {
         setDeltaRAbort(fParam);
-        ROS_INFO("Set deltaRAbort: %g", fParam);
+        ROS_INFO("laserOdometry node set deltaRAbort: %g", fParam);
       }
-    }*/
+    }
 
     // advertise laser odometry topics
     _pubLaserCloudCornerLast = node.advertise<sensor_msgs::PointCloud2>("/laser_cloud_corner_last", 2);
     _pubLaserCloudSurfLast = node.advertise<sensor_msgs::PointCloud2>("/laser_cloud_surf_last", 2);
-    _pubLaserCloudFullRes = node.advertise<sensor_msgs::PointCloud2>("/velodyne_cloud_3", 2);
+    _pubLaserCloudFullRes = node.advertise<sensor_msgs::PointCloud2>("/full_point_cloud_3", 2);
     _pubLaserOdometry = node.advertise<nav_msgs::Odometry>("/laser_odom_to_init", 5);
 
     // subscribe to scan registration topics
@@ -157,7 +160,7 @@ namespace loam
       ("/laser_cloud_less_flat", 2, &LaserOdometry::laserCloudLessFlatHandler, this);
 
     _subLaserCloudFullRes = node.subscribe<sensor_msgs::PointCloud2>
-      ("/velodyne_cloud_2", 2, &LaserOdometry::laserCloudFullResHandler, this);
+      ("/full_point_cloud_2", 2, &LaserOdometry::laserCloudFullResHandler, this);
 
     _subImuTrans = node.subscribe<sensor_msgs::PointCloud2>
       ("/imu_trans", 5, &LaserOdometry::imuTransHandler, this);
@@ -289,9 +292,10 @@ namespace loam
       return;// waiting for new data to arrive...
 
     reset();// reset flags, etc.
-    BasicLaserOdometry::process();
+    char log[50];
+    BasicLaserOdometry::process(log);
     publishResult();
-    ROS_INFO("LaserOdometry node complete a motion estimation!");
+    ROS_INFO("LaserOdometry node complete a motion estimation!%s!",log);
   }
 
 

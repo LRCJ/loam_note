@@ -60,27 +60,159 @@ int MultiScanMapper::getRingForAngle(const float& angle) {
 
 
 MultiScanRegistration::MultiScanRegistration(const MultiScanMapper& scanMapper)
-    : _scanMapper(scanMapper)//在MultiScanRegigtration.h里声明该构造函数时已经给scanMapper赋予了默认参数
+    : _scanMapper(scanMapper),//在MultiScanRegigtration.h里声明该构造函数时已经给scanMapper赋予了默认参数
+      _systemDelay(40)
 {}
 
 bool MultiScanRegistration::setup(ros::NodeHandle& node, ros::NodeHandle& privateNode)
 {
+  //获取节点参数
+  int iParam = 0;
+  float fParam = 0;
   RegistrationParams config;
-  // subscribe to IMU topic
-  _subImu = node.subscribe<sensor_msgs::Imu>("/imu/data", 50, &MultiScanRegistration::handleIMUMessage, this);
+  if (privateNode.getParam("systemDelay", iParam))
+  {
+    if (iParam <= 0)
+    {
+      ROS_ERROR("Invalid systemDelay parameter: %d (expected > 0)", iParam);
+      return false;
+    }
+    else
+    {
+      _systemDelay = iParam;
+      ROS_INFO("multiScanRegistration node set systemDelay: %d", iParam);
+    }
+  }
 
-  // advertise scan registration topics
-  _pubLaserCloud            = node.advertise<sensor_msgs::PointCloud2>("/velodyne_cloud_2", 2);
-  _pubCornerPointsSharp     = node.advertise<sensor_msgs::PointCloud2>("/laser_cloud_sharp", 2);
-  _pubCornerPointsLessSharp = node.advertise<sensor_msgs::PointCloud2>("/laser_cloud_less_sharp", 2);
-  _pubSurfPointsFlat        = node.advertise<sensor_msgs::PointCloud2>("/laser_cloud_flat", 2);
-  _pubSurfPointsLessFlat    = node.advertise<sensor_msgs::PointCloud2>("/laser_cloud_less_flat", 2);
-  _pubImuTrans              = node.advertise<sensor_msgs::PointCloud2>("/imu_trans", 5);
+  if (privateNode.getParam("scanPeriod", fParam))
+  {
+    if (fParam <= 0)
+    {
+      ROS_ERROR("Invalid scanPeriod parameter: %f (expected > 0)", fParam);
+      return false;
+    }
+    else
+    {
+      config.scanPeriod = fParam;
+      ROS_INFO("multiScanRegistration node set scanPeriod: %g", fParam);
+    }
+  }
 
-  // fetch scan mapping params
+  if (privateNode.getParam("imuHistorySize", iParam))
+  {
+    if (iParam < 1)
+    {
+      ROS_ERROR("Invalid imuHistorySize parameter: %d (expected >= 1)", iParam);
+      return false;
+    }
+    else
+    {
+      config.imuHistorySize = iParam;
+      ROS_INFO("multiScanRegistration node set imuHistorySize: %d", iParam);
+    }
+  }
+
+  if (privateNode.getParam("featureRegions", iParam))
+  {
+    if (iParam < 1)
+    {
+      ROS_ERROR("Invalid featureRegions parameter: %d (expected >= 1)", iParam);
+      return false;
+    }
+    else
+    {
+      config.nFeatureRegions = iParam;
+      ROS_INFO("multiScanRegistration node set nFeatureRegions: %d", iParam);
+    }
+  }
+
+  if (privateNode.getParam("curvatureRegion", iParam))
+  {
+    if (iParam < 1)
+    {
+      ROS_ERROR("Invalid curvatureRegion parameter: %d (expected >= 1)", iParam);
+      return false;
+    }
+    else
+    {
+      config.curvatureRegion = iParam;
+      ROS_INFO("multiScanRegistration node set curvatureRegion: +/- %d", iParam);
+    }
+  }
+
+  if (privateNode.getParam("maxCornerSharp", iParam))
+  {
+    if (iParam < 1)
+    {
+      ROS_ERROR("Invalid maxCornerSharp parameter: %d (expected >= 1)", iParam);
+      return false;
+    }
+    else
+    {
+      config.maxCornerSharp = iParam;
+      config.maxCornerLessSharp = 10 * iParam;
+      ROS_INFO("multiScanRegistration node set maxCornerSharp / less sharp: %d / %d", iParam, config.maxCornerLessSharp);
+    }
+  }
+
+  if (privateNode.getParam("maxCornerLessSharp", iParam))
+  {
+    if (iParam < config.maxCornerSharp)
+    {
+      ROS_ERROR("Invalid maxCornerLessSharp parameter: %d (expected >= %d)", iParam, config.maxCornerSharp);
+      return false;
+    }
+    else
+    {
+      config.maxCornerLessSharp = iParam;
+      ROS_INFO("multiScanRegistration node set maxCornerLessSharp: %d", iParam);
+    }
+  }
+
+  if (privateNode.getParam("maxSurfaceFlat", iParam))
+  {
+    if (iParam < 1)
+    {
+      ROS_ERROR("Invalid maxSurfaceFlat parameter: %d (expected >= 1)", iParam);
+      return false;
+    }
+    else
+    {
+      config.maxSurfaceFlat = iParam;
+      ROS_INFO("multiScanRegistration node set maxSurfaceFlat: %d", iParam);
+    }
+  }
+
+  if (privateNode.getParam("surfaceCurvatureThreshold", fParam))
+  {
+    if (fParam < 0.001)
+    {
+      ROS_ERROR("Invalid surfaceCurvatureThreshold parameter: %f (expected >= 0.001)", fParam);
+      return false;
+    }
+    else
+    {
+      config.surfaceCurvatureThreshold = fParam;
+      ROS_INFO("multiScanRegistration node set surfaceCurvatureThreshold: %g", fParam);
+    }
+  }
+
+  if (privateNode.getParam("lessFlatFilterSize", fParam))
+  {
+    if (fParam < 0.001)
+    {
+      ROS_ERROR("Invalid lessFlatFilterSize parameter: %f (expected >= 0.001)", fParam);
+      return false;
+    }
+    else
+    {
+      config.lessFlatFilterSize = fParam;
+      ROS_INFO("multiScanRegistration node set lessFlatFilterSize: %g", fParam);
+    }
+  }
+  configure(config);
+
   std::string lidarName;
-  std::string topicName;
-
   if (privateNode.getParam("lidar", lidarName))
   {
     if (lidarName == "VLP-16")
@@ -99,37 +231,30 @@ bool MultiScanRegistration::setup(ros::NodeHandle& node, ros::NodeHandle& privat
     ROS_INFO("multiScanRegistration node set %s scan mapper!", lidarName.c_str());
   }
   else
-  {/*
-    float vAngleMin, vAngleMax;
-    int nScanRings;
-
-    if (privateNode.getParam("minVerticalAngle", vAngleMin) &&
-        privateNode.getParam("maxVerticalAngle", vAngleMax) &&
-        privateNode.getParam("nScanRings", nScanRings)) {
-      if (vAngleMin >= vAngleMax) {
-        ROS_ERROR("Invalid vertical range (min >= max)");
-        return false;
-      } else if (nScanRings < 2) {
-        ROS_ERROR("Invalid number of scan rings (n < 2)");
-        return false;
-      }
-
-      _scanMapper.set(vAngleMin, vAngleMax, nScanRings);
-      ROS_INFO("Set linear scan mapper from %g to %g degrees with %d scan rings.", vAngleMin, vAngleMax, nScanRings);
-    }*/
+  {
     ROS_ERROR("Please enter the Lidar Name!");
+    return false;
   }
 
-  // subscribe to input cloud topic
+  //订阅IMU数据
+  _subImu = node.subscribe<sensor_msgs::Imu>("/imu/data", 50, &MultiScanRegistration::handleIMUMessage, this);
+
+  //订阅激光雷达点云数据
+  std::string topicName;
   if (privateNode.getParam("PointCloudTopicName", topicName))
   {
     _subLaserCloud = node.subscribe<sensor_msgs::PointCloud2>
         (topicName, 2, &MultiScanRegistration::handleCloudMessage, this);
-    ROS_INFO("laserMapping node set maxIterations: %s", topicName.c_str());
+    ROS_INFO("multiScanRegistration node set PointCloudTopicName: %s", topicName.c_str());
   }
 
-  parseParams(privateNode,config);
-  configure(config);
+  //multiScanRegistration节点需要发布的数据
+  _pubLaserCloud            = node.advertise<sensor_msgs::PointCloud2>("/full_point_cloud_2", 2);
+  _pubCornerPointsSharp     = node.advertise<sensor_msgs::PointCloud2>("/laser_cloud_sharp", 2);
+  _pubCornerPointsLessSharp = node.advertise<sensor_msgs::PointCloud2>("/laser_cloud_less_sharp", 2);
+  _pubSurfPointsFlat        = node.advertise<sensor_msgs::PointCloud2>("/laser_cloud_flat", 2);
+  _pubSurfPointsLessFlat    = node.advertise<sensor_msgs::PointCloud2>("/laser_cloud_less_flat", 2);
+  _pubImuTrans              = node.advertise<sensor_msgs::PointCloud2>("/imu_trans", 5);
 
   return true;
 }
@@ -147,7 +272,6 @@ void MultiScanRegistration::handleCloudMessage(const sensor_msgs::PointCloud2Con
   // fetch new input cloud
   pcl::PointCloud<pcl::PointXYZ> laserCloudIn;
   pcl::fromROSMsg(*laserCloudMsg, laserCloudIn);
-
   process(laserCloudIn, fromROSTime(laserCloudMsg->header.stamp));
 }
 void MultiScanRegistration::handleIMUMessage(const sensor_msgs::Imu::ConstPtr& imuIn)
@@ -162,14 +286,14 @@ void MultiScanRegistration::handleIMUMessage(const sensor_msgs::Imu::ConstPtr& i
   acc.y() = float(imuIn->linear_acceleration.z - cos(roll) * cos(pitch) * 9.81);
   acc.z() = float(imuIn->linear_acceleration.x + sin(pitch)             * 9.81);
 
-  IMUState newState;
+  IMUState newState;//定义在BasicScanRegistration.h
   newState.stamp = fromROSTime( imuIn->header.stamp);
   newState.roll = roll;
   newState.pitch = pitch;
   newState.yaw = yaw;
   newState.acceleration = acc;
 
-//  updateIMUData(acc, newState);
+  updateIMUData(acc, newState);
 }
 
 
@@ -178,6 +302,7 @@ void MultiScanRegistration::process(const pcl::PointCloud<pcl::PointXYZ>& laserC
   size_t cloudSize = laserCloudIn.size();
 
   // determine scan start and end orientations
+  //atan2(y,x)值域为(-π,π]，通过对负数结果加2π的方法将函数结果映射到[0,2π)
   float startOri = -std::atan2(laserCloudIn[0].y, laserCloudIn[0].x);
   float endOri = -std::atan2(laserCloudIn[cloudSize - 1].y,
                              laserCloudIn[cloudSize - 1].x) + 2 * float(M_PI);
@@ -219,7 +344,7 @@ void MultiScanRegistration::process(const pcl::PointCloud<pcl::PointXYZ>& laserC
     {
       if (ori < startOri - M_PI / 2)
         ori += 2 * M_PI;
-      else if (ori > startOri + M_PI * 3 / 2)
+      else if (ori > startOri + M_PI * 3 / 2)//  2 * M_PI - M_PI / 2 = M_PI * 3 / 2
         ori -= 2 * M_PI;
       if (ori - startOri > M_PI)
         halfPassed = true;
@@ -238,7 +363,7 @@ void MultiScanRegistration::process(const pcl::PointCloud<pcl::PointXYZ>& laserC
     float relTime = config().scanPeriod * (ori - startOri) / (endOri - startOri);
     point.intensity = scanID + relTime;
 
-    //projectPointToStartOfSweep(point, relTime);//可注释掉
+    projectPointToStartOfSweep(point, relTime);//可注释掉
 
     _laserCloudScans[scanID].push_back(point);
   }
@@ -258,144 +383,7 @@ void MultiScanRegistration::publishResult()
   publishCloudMsg(_pubSurfPointsLessFlat, surfacePointsLessFlat(), sweepStartTime, "/camera");
 
   // publish corresponding IMU transformation information
-  publishCloudMsg(_pubImuTrans, imuTransform(), sweepStartTime, "/camera");
-}
-
-
-bool MultiScanRegistration::parseParams(const ros::NodeHandle& nh, RegistrationParams& config_out) 
-{
-  bool success = true;
-  int iParam = 0;
-  float fParam = 0;
-
-  if (nh.getParam("scanPeriod", fParam))
-  {
-    if (fParam <= 0)
-    {
-      ROS_ERROR("Invalid scanPeriod parameter: %f (expected > 0)", fParam);
-      success = false;
-    }
-    else
-    {
-      config_out.scanPeriod = fParam;
-      ROS_INFO("Set scanPeriod: %g", fParam);
-    }
-  }
-
-  if (nh.getParam("imuHistorySize", iParam))
-  {
-    if (iParam < 1)
-    {
-      ROS_ERROR("Invalid imuHistorySize parameter: %d (expected >= 1)", iParam);
-      success = false;
-    }
-    else
-    {
-      config_out.imuHistorySize = iParam;
-      ROS_INFO("Set imuHistorySize: %d", iParam);
-    }
-  }
-
-  if (nh.getParam("featureRegions", iParam))
-  {
-    if (iParam < 1)
-    {
-      ROS_ERROR("Invalid featureRegions parameter: %d (expected >= 1)", iParam);
-      success = false;
-    }
-    else
-    {
-      config_out.nFeatureRegions = iParam;
-      ROS_INFO("Set nFeatureRegions: %d", iParam);
-    }
-  }
-
-  if (nh.getParam("curvatureRegion", iParam))
-  {
-    if (iParam < 1)
-    {
-      ROS_ERROR("Invalid curvatureRegion parameter: %d (expected >= 1)", iParam);
-      success = false;
-    }
-    else
-    {
-      config_out.curvatureRegion = iParam;
-      ROS_INFO("Set curvatureRegion: +/- %d", iParam);
-    }
-  }
-
-  if (nh.getParam("maxCornerSharp", iParam))
-  {
-    if (iParam < 1)
-    {
-      ROS_ERROR("Invalid maxCornerSharp parameter: %d (expected >= 1)", iParam);
-      success = false;
-    }
-    else
-    {
-      config_out.maxCornerSharp = iParam;
-      config_out.maxCornerLessSharp = 10 * iParam;
-      ROS_INFO("Set maxCornerSharp / less sharp: %d / %d", iParam, config_out.maxCornerLessSharp);
-    }
-  }
-
-  if (nh.getParam("maxCornerLessSharp", iParam))
-  {
-    if (iParam < config_out.maxCornerSharp)
-    {
-      ROS_ERROR("Invalid maxCornerLessSharp parameter: %d (expected >= %d)", iParam, config_out.maxCornerSharp);
-      success = false;
-    }
-    else
-    {
-      config_out.maxCornerLessSharp = iParam;
-      ROS_INFO("Set maxCornerLessSharp: %d", iParam);
-    }
-  }
-
-  if (nh.getParam("maxSurfaceFlat", iParam))
-  {
-    if (iParam < 1)
-    {
-      ROS_ERROR("Invalid maxSurfaceFlat parameter: %d (expected >= 1)", iParam);
-      success = false;
-    }
-    else
-    {
-      config_out.maxSurfaceFlat = iParam;
-      ROS_INFO("Set maxSurfaceFlat: %d", iParam);
-    }
-  }
-
-  if (nh.getParam("surfaceCurvatureThreshold", fParam))
-  {
-    if (fParam < 0.001)
-    {
-      ROS_ERROR("Invalid surfaceCurvatureThreshold parameter: %f (expected >= 0.001)", fParam);
-      success = false;
-    }
-    else
-    {
-      config_out.surfaceCurvatureThreshold = fParam;
-      ROS_INFO("Set surfaceCurvatureThreshold: %g", fParam);
-    }
-  }
-
-  if (nh.getParam("lessFlatFilterSize", fParam))
-  {
-    if (fParam < 0.001)
-    {
-      ROS_ERROR("Invalid lessFlatFilterSize parameter: %f (expected >= 0.001)", fParam);
-      success = false;
-    }
-    else
-    {
-      config_out.lessFlatFilterSize = fParam;
-      ROS_INFO("Set lessFlatFilterSize: %g", fParam);
-    }
-  }
-
-  return success;
+  publishCloudMsg(_pubImuTrans, imuTransform(), sweepStartTime, "/camera");//return _imuTrans -- IMU transformation information
 }
 
 
