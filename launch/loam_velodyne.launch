@@ -2,8 +2,8 @@
 
   <arg name="rviz" default="true" />
   <arg name="scanPeriod" default="0.1" />
-  <arg name="lidarName" default="PandarQT" />
-  <arg name="pointCloudName" default="PandarQT_Data" />
+  <arg name="lidarName" default="VLP-16" /> <!--VLP-16 PandarQT-->
+  <arg name="pointCloudName" default="points_raw" /> <!--PandarQT_Data velodyne_points points_raw-->
 
   <node pkg="loam_velodyne" type="multiScanRegistration" name="multiScanRegistration" output="screen">
     <param name="lidar" value="$(arg lidarName)" /> <!-- options: VLP-16  HDL-32  HDL-64E PandarQT-->

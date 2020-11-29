@@ -152,8 +152,8 @@ void BasicLaserMapping::transformAssociateToMap()
    float salz = _transformAftMapped.rot_z.sin();
    float calz = _transformAftMapped.rot_z.cos();
 
-   //R = Ral*Rbl转置*Rbc，此处的Ral和Rbl，或者说_transformBefMapped和_transformAftMapped都是在处理上一帧点云中得到的
-   //Ral*Rbl转置等于上一帧Mapping算法的优化量，此处直接乘上Rbc即是假设当前帧的优化量等于上一帧的优化量，作为一个初始值
+   //R = Ral*Rbl转置*Rbc，此处的Ral和Rbl，或者说_transformBefMapped和_transformAftMapped都是在处理之前某一帧点云中得到的
+   //Ral*Rbl转置等于之前某一次Mapping算法的优化量，此处直接乘上Rbc即是假设当前帧的优化量等于上一帧的优化量，作为一个初始值
    float srx = -sbcx * (salx*sblx + calx * cblx*salz*sblz + calx * calz*cblx*cblz)
       - cbcx * sbcy*(calx*calz*(cbly*sblz - cblz * sblx*sbly)
                      - calx * salz*(cbly*cblz + sblx * sbly*sblz) + cblx * salx*sbly)
